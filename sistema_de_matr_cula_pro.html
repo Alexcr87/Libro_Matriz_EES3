@@ -3,250 +3,480 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Matrícula Pro - Estadísticas Avanzadas</title>
+    <title>Libro Matriz y Registro de Matrícula — E.E.S N°3 Malvinas Argentinas</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            200: '#bae0fd',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#082f49',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- Bibliotecas Externas -->
+    <!-- Bibliotecas Externas: SheetJS y Chart.js -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono-num { font-family: 'JetBrains Mono', monospace; }
+        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .view-section { display: none; animation: fadeIn 0.25s ease-out forwards; }
         .view-section.active { display: block; }
         
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
+            from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; }
         .toast {
-            min-width: 250px; padding: 16px; border-radius: 8px; color: white;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            animation: slideInRight 0.3s forwards, fadeOut 0.3s forwards 3s;
+            min-width: 280px; max-width: 420px; padding: 14px 18px; border-radius: 10px; color: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2); font-size: 0.875rem; font-weight: 500;
+            display: flex; align-items: center; animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .toast.success { background-color: #10b981; }
-        .toast.error { background-color: #ef4444; }
-        .toast.info { background-color: #3b82f6; }
+        @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; display: none; } }
+        @media print {
+            aside, header, #toolbar-curso, .no-print { display: none !important; }
+            main, body { height: auto !important; overflow: visible !important; background: white !important; padding: 0 !important; }
+            .print-table { width: 100% !important; border-collapse: collapse !important; font-size: 8pt !important; }
+            .print-table th, .print-table td { border: 1px solid #333 !important; padding: 3px 5px !important; }
+            .print-header { display: block !important; }
+        }
+        .print-header { display: none; }
     </style>
 </head>
-<body class="text-slate-800 h-screen overflow-hidden flex">
+<body class="bg-slate-100 text-slate-800 h-screen overflow-hidden flex select-none">
 
-    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex z-10 shadow-sm">
-        <div>
-            <div class="h-16 flex items-center px-6 border-b border-slate-100">
-                <i class="fa-solid fa-graduation-cap text-indigo-600 text-2xl mr-3"></i>
-                <h1 class="font-bold text-lg text-slate-800 tracking-tight">Matrícula<span class="text-indigo-600">Pro</span></h1>
+    <!-- ── SIDEBAR ──────────────────────────────────────────────────────────── -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between hidden md:flex z-20 shadow-xl shrink-0">
+        <div class="flex flex-col h-full overflow-hidden">
+            <!-- Logo Institucional -->
+            <div class="h-20 flex items-center px-5 bg-slate-950 border-b border-slate-800 shrink-0">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-lg mr-3 shrink-0">
+                    <i class="fa-solid fa-school"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <h1 class="font-bold text-sm text-white tracking-tight leading-snug truncate">E.E.S N°3</h1>
+                    <p class="text-xs text-sky-400 font-medium truncate">"Malvinas Argentinas"</p>
+                    <p class="text-[10px] text-slate-400">Libro Matriz Digital</p>
+                </div>
             </div>
-            <nav class="p-4 space-y-1">
-                <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg bg-indigo-50 text-indigo-700 transition-colors">
-                    <i class="fa-solid fa-chart-pie w-6"></i> Estadísticas
+
+            <!-- Navegación General -->
+            <div class="p-3 pb-0 space-y-1 shrink-0">
+                <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center px-3.5 py-2.5 text-xs font-semibold rounded-lg bg-sky-600 text-white shadow-sm transition-all">
+                    <i class="fa-solid fa-chart-pie w-5 text-sm"></i> Panel & Métricas
                 </button>
-                <button onclick="navigate('students')" id="nav-students" class="nav-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-                    <i class="fa-solid fa-users w-6"></i> Registro Alumnos
+                <button onclick="navigate('students')" id="nav-students" class="nav-btn w-full flex items-center px-3.5 py-2.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-solid fa-users w-5 text-sm"></i> Registro Global
                 </button>
-                <button onclick="navigate('import-export')" id="nav-import-export" class="nav-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-                    <i class="fa-solid fa-file-excel w-6"></i> Sincronización
+                <button onclick="navigate('import-export')" id="nav-import-export" class="nav-btn w-full flex items-center px-3.5 py-2.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                    <i class="fa-solid fa-file-excel w-5 text-sm text-emerald-400"></i> Importar / Exportar
                 </button>
-            </nav>
-        </div>
-        <div class="p-4 border-t border-slate-100 bg-slate-50">
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                    <i class="fa-solid fa-cloud"></i>
+            </div>
+
+            <!-- Separador Cursos -->
+            <div class="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Cursos y Divisiones</span>
+                <span class="text-[10px] bg-slate-800 text-sky-400 px-2 py-0.5 rounded-full font-mono-num font-bold" id="sidebar-total-courses">18</span>
+            </div>
+
+            <!-- Lista Scrollable de Cursos -->
+            <div class="flex-1 overflow-y-auto px-2 space-y-1" id="sidebar-courses-list">
+                <!-- Se rellena dinámicamente con los cursos -->
+                <div class="p-4 text-center text-xs text-slate-400">Cargando cursos...</div>
+            </div>
+
+            <!-- Footer con estado de persistencia -->
+            <div class="p-3 bg-slate-950 border-t border-slate-800 shrink-0 flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" id="storage-status-dot"></div>
+                    <span class="text-[11px] text-slate-400 font-medium" id="storage-status-text">Base Local Activa</span>
                 </div>
-                <div class="ml-3 overflow-hidden">
-                    <p class="text-sm font-medium text-slate-700 truncate">Firebase Sync</p>
-                    <p class="text-xs text-slate-500 truncate" id="user-status">Conectando...</p>
-                </div>
+                <button onclick="backupJSON()" title="Descargar Copia de Seguridad JSON" class="text-slate-400 hover:text-sky-400 text-xs transition-colors">
+                    <i class="fa-solid fa-download mr-1"></i>Backup
+                </button>
             </div>
         </div>
     </aside>
 
+    <!-- ── MAIN CONTENT ─────────────────────────────────────────────────────── -->
     <main class="flex-1 flex flex-col h-screen overflow-hidden">
         
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 shadow-sm">
-            <div class="flex items-center md:hidden">
-                <i class="fa-solid fa-graduation-cap text-indigo-600 text-xl mr-2"></i>
-                <span class="font-bold text-slate-800">MatrículaPro</span>
+        <!-- Header Superior -->
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 shadow-sm shrink-0">
+            <div class="flex items-center space-x-3">
+                <div class="md:hidden flex items-center mr-2">
+                    <i class="fa-solid fa-school text-sky-600 text-xl"></i>
+                </div>
+                <div id="header-title-container">
+                    <h2 class="font-bold text-slate-800 text-base leading-tight" id="header-title">Panel de Control General</h2>
+                    <p class="text-xs text-slate-500" id="header-subtitle">Resumen estadístico y matrícula institucional</p>
+                </div>
             </div>
             
-            <div class="flex items-center space-x-4 ml-auto">
-                <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                    <i class="fa-regular fa-calendar-alt text-slate-400"></i>
-                    <select id="year-filter" onchange="handleYearChange()" class="bg-transparent text-sm font-bold text-indigo-700 focus:outline-none cursor-pointer">
-                        <option value="2024">Ciclo 2024</option>
-                        <option value="2025">Ciclo 2025</option>
-                        <option value="2026">Ciclo 2026</option>
+            <div class="flex items-center space-x-3">
+                <!-- Selector Ciclo Lectivo -->
+                <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <i class="fa-regular fa-calendar-check text-slate-400 text-xs"></i>
+                    <span class="text-xs font-semibold text-slate-600">Ciclo:</span>
+                    <select id="cycle-selector" onchange="handleCycleChange()" class="bg-transparent text-xs font-bold text-sky-700 focus:outline-none cursor-pointer">
+                        <option value="2026" selected>2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
                         <option value="Todos">Histórico Completo</option>
                     </select>
                 </div>
-                <button onclick="openModal('modal-add-student')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center transform active:scale-95">
-                    <i class="fa-solid fa-user-plus mr-2"></i> Matricular
+
+                <!-- Botón Importar Directo -->
+                <button onclick="navigate('import-export')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm flex items-center">
+                    <i class="fa-solid fa-file-excel mr-1.5"></i> Importar Excel
+                </button>
+
+                <!-- Botón Matricular Alumno -->
+                <button onclick="openStudentModal()" class="bg-sky-600 hover:bg-sky-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm flex items-center">
+                    <i class="fa-solid fa-user-plus mr-1.5"></i> Nuevo Alumno
                 </button>
             </div>
         </header>
 
-        <div class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+        <!-- Contenedor de Vistas -->
+        <div class="flex-1 overflow-y-auto p-5 md:p-6 bg-slate-100">
 
-            <section id="view-dashboard" class="view-section active max-w-7xl mx-auto">
-                <div class="mb-6 flex justify-between items-end">
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Métricas Académicas</h2>
-                        <p class="text-slate-500 text-sm mt-1">Análisis detallado extraído de los registros básicos.</p>
-                    </div>
-                </div>
-
+            <!-- ═════ VISTA 1: DASHBOARD / ESTADÍSTICAS ═════ -->
+            <section id="view-dashboard" class="view-section active max-w-7xl mx-auto space-y-6">
                 <!-- Tarjetas KPI -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Matrícula Total</p>
-                        <div class="mt-2 flex items-baseline gap-2">
-                            <span class="text-3xl font-bold text-slate-800" id="stat-total">0</span>
-                            <span class="text-sm font-medium text-emerald-500"><i class="fa-solid fa-users"></i></span>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative overflow-hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Matrícula Total</p>
+                                <h3 class="text-3xl font-extrabold text-slate-800 font-mono-num mt-1" id="kpi-total-alumnos">0</h3>
+                                <p class="text-xs text-sky-600 font-medium mt-1" id="kpi-total-cursos-sub">0 Cursos / Divisiones</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">% Femenino / Masculino</p>
-                        <div class="mt-2 flex items-baseline gap-2">
-                            <span class="text-3xl font-bold text-slate-800" id="stat-gender-ratio">0/0</span>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative overflow-hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Distribución por Género</p>
+                                <div class="flex items-baseline space-x-2 mt-1">
+                                    <span class="text-2xl font-extrabold text-slate-800 font-mono-num" id="kpi-fem-masc">0 / 0</span>
+                                </div>
+                                <p class="text-xs text-slate-600 font-medium mt-1" id="kpi-fem-masc-pct">F: 0% · M: 0%</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-venus-mars"></i>
+                            </div>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nuevos Ingresos</p>
-                        <div class="mt-2 flex items-baseline gap-2">
-                            <span class="text-3xl font-bold text-slate-800" id="stat-new">0</span>
-                            <span class="text-sm font-medium text-blue-500" id="stat-new-pct">(0%)</span>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative overflow-hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Promedio de Edad</p>
+                                <h3 class="text-3xl font-extrabold text-slate-800 font-mono-num mt-1"><span id="kpi-edad-promedio">0</span> <span class="text-sm font-normal text-slate-600">años</span></h3>
+                                <p class="text-xs text-slate-600 font-medium mt-1">Rango: <span id="kpi-edad-rango">11 - 19 años</span></p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-cake-candles"></i>
+                            </div>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Edad Promedio</p>
-                        <div class="mt-2 flex items-baseline gap-2">
-                            <span class="text-3xl font-bold text-slate-800" id="stat-age-avg">0</span>
-                            <span class="text-sm font-medium text-slate-400">años</span>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative overflow-hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Pases y Movimientos</p>
+                                <h3 class="text-3xl font-extrabold text-emerald-600 font-mono-num mt-1" id="kpi-movimientos-total">0</h3>
+                                <p class="text-xs text-slate-600 font-medium mt-1" id="kpi-movimientos-detail">Egresos / Pases registrados</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Gráficos -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Distribución por Edades</h3>
-                        <div class="relative h-64"><canvas id="chartAge"></canvas></div>
+                <!-- Gráficos Estadísticos -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <!-- Gráfico Matrícula por Curso -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="font-bold text-slate-800 text-sm flex items-center">
+                                <i class="fa-solid fa-chart-column text-sky-600 mr-2"></i> Cantidad de Alumnos por Curso y División
+                            </h4>
+                            <span class="text-xs text-slate-600 font-medium">1° a 6° Año</span>
+                        </div>
+                        <div class="relative h-72">
+                            <canvas id="chartCourses"></canvas>
+                        </div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Alumnos por Curso y Turno</h3>
-                        <div class="relative h-64"><canvas id="chartCourseShift"></canvas></div>
+
+                    <!-- Gráfico Género -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="font-bold text-slate-800 text-sm flex items-center">
+                                <i class="fa-solid fa-chart-pie text-pink-600 mr-2"></i> Distribución de Género
+                            </h4>
+                        </div>
+                        <div class="relative h-72 flex items-center justify-center">
+                            <canvas id="chartGender"></canvas>
+                        </div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Desglose por Género</h3>
-                        <div class="relative h-64 flex justify-center"><canvas id="chartGender"></canvas></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <!-- Gráfico Distribución por Edad -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="font-bold text-slate-800 text-sm flex items-center">
+                                <i class="fa-solid fa-users-line text-indigo-600 mr-2"></i> Distribución por Rango de Edad
+                            </h4>
+                        </div>
+                        <div class="relative h-64">
+                            <canvas id="chartAge"></canvas>
+                        </div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Condición del Alumnado (Repitencia)</h3>
-                        <div class="relative h-64 flex justify-center"><canvas id="chartCondition"></canvas></div>
+
+                    <!-- Gráfico Turnos / Orientación -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="font-bold text-slate-800 text-sm flex items-center">
+                                <i class="fa-solid fa-sun text-amber-500 mr-2"></i> Alumnado por Turno
+                            </h4>
+                        </div>
+                        <div class="relative h-64 flex items-center justify-center">
+                            <canvas id="chartShift"></canvas>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section id="view-students" class="view-section max-w-7xl mx-auto">
-                <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <!-- ═════ VISTA 2: CURSO ESPECÍFICO (FORMATO OFICIAL LIBRO MATRIZ) ═════ -->
+            <section id="view-course-detail" class="view-section max-w-7xl mx-auto space-y-4">
+                
+                <!-- Encabezado Oficial del Curso -->
+                <div class="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 rounded-xl p-5 text-white shadow-md border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Registro General</h2>
+                        <div class="flex items-center space-x-3">
+                            <span class="bg-sky-500/20 text-sky-300 border border-sky-400/30 px-3 py-1 rounded-lg text-sm font-bold tracking-wide" id="course-badge">1° A</span>
+                            <h3 class="text-xl font-bold tracking-tight text-white" id="course-title">1° Año — División "A"</h3>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1 flex items-center space-x-3" id="course-meta">
+                            <span><i class="fa-regular fa-clock mr-1 text-sky-400"></i> Turno: <b id="course-turno" class="text-white">Mañana</b></span>
+                            <span>•</span>
+                            <span><i class="fa-solid fa-book-bookmark mr-1 text-sky-400"></i> <span id="course-orientacion">Ciclo Básico</span></span>
+                            <span>•</span>
+                            <span><i class="fa-solid fa-users mr-1 text-sky-400"></i> Total: <b id="course-student-count" class="text-sky-300">0</b> alumnos</span>
+                        </p>
                     </div>
-                    <div class="relative w-full sm:w-80">
-                        <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" id="search-input" onkeyup="filterTable()" placeholder="Buscar por DNI, Nombre o Curso..." class="pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full shadow-sm">
+
+                    <!-- Toolbar de acciones del curso -->
+                    <div class="flex flex-wrap items-center gap-2" id="toolbar-curso">
+                        <button onclick="openStudentModal(null, currentSelectedCourseKey)" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center">
+                            <i class="fa-solid fa-plus mr-1.5"></i> Agregar Alumno
+                        </button>
+                        <button onclick="exportCurrentCourseExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center">
+                            <i class="fa-solid fa-file-excel mr-1.5"></i> Exportar Curso
+                        </button>
+                        <button onclick="printCourseRegistry()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center">
+                            <i class="fa-solid fa-print mr-1.5"></i> Imprimir Grilla
+                        </button>
                     </div>
                 </div>
 
+                <!-- Barra de búsqueda rápida dentro del curso -->
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <div class="relative w-full sm:w-80">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="search-in-course" onkeyup="filterCourseTable()" placeholder="Buscar alumno en este curso..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-sky-500 outline-none shadow-sm">
+                    </div>
+                    <div class="text-xs text-slate-500 font-medium">
+                        Mostrando <span id="course-table-count" class="font-bold text-slate-700">0</span> registros
+                    </div>
+                </div>
+
+                <!-- Tabla Libro Matriz del Curso -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse" id="table-course-students">
+                            <thead>
+                                <tr class="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-semibold border-b border-slate-700">
+                                    <th class="px-3 py-3 w-12 text-center">N°</th>
+                                    <th class="px-3 py-3 w-20 text-center">LM / Folio</th>
+                                    <th class="px-4 py-3 min-w-[200px]">Apellido y Nombre</th>
+                                    <th class="px-3 py-3 w-24 text-center">Fecha Nac.</th>
+                                    <th class="px-3 py-3 w-14 text-center">Edad</th>
+                                    <th class="px-3 py-3 w-14 text-center">Sexo</th>
+                                    <th class="px-3 py-3 w-28">DNI / Documento</th>
+                                    <th class="px-3 py-3 min-w-[170px]">Tutor / Encargado</th>
+                                    <th class="px-3 py-3 min-w-[140px]">Domicilio</th>
+                                    <th class="px-3 py-3 w-28">Teléfono</th>
+                                    <th class="px-3 py-3 min-w-[140px]">Observaciones</th>
+                                    <th class="px-3 py-3 w-24 text-center no-print">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="course-table-body" class="text-xs text-slate-700 divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="12" class="px-6 py-12 text-center text-slate-400 font-medium">
+                                        Selecciona un curso o importa un archivo Excel para ver los alumnos.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═════ VISTA 3: REGISTRO GLOBAL Y BÚSQUEDA ═════ -->
+            <section id="view-students" class="view-section max-w-7xl mx-auto space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Padrón Global de Alumnos</h3>
+                        <p class="text-xs text-slate-500">Búsqueda rápida en toda la matrícula institucional de la E.E.S N°3</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <!-- Filtro Curso -->
+                        <select id="global-filter-curso" onchange="filterGlobalTable()" class="bg-slate-50 border border-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500 font-medium text-slate-700">
+                            <option value="">Todos los Cursos</option>
+                        </select>
+
+                        <!-- Buscador -->
+                        <div class="relative flex-1 sm:w-72">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="global-search-input" onkeyup="filterGlobalTable()" placeholder="Buscar por Nombre, DNI, Tutor..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla Global -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-                                    <th class="px-5 py-4 font-medium">DNI</th>
-                                    <th class="px-5 py-4 font-medium">Alumno</th>
-                                    <th class="px-5 py-4 font-medium">Edad</th>
-                                    <th class="px-5 py-4 font-medium">Curso / Turno</th>
-                                    <th class="px-5 py-4 font-medium">Condición</th>
-                                    <th class="px-5 py-4 font-medium text-right">Acciones</th>
+                                <tr class="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-200">
+                                    <th class="px-4 py-3.5 w-24">Curso</th>
+                                    <th class="px-3 py-3.5 w-12 text-center">N°</th>
+                                    <th class="px-4 py-3.5 min-w-[200px]">Alumno</th>
+                                    <th class="px-3 py-3.5 w-28">DNI</th>
+                                    <th class="px-3 py-3.5 w-14 text-center">Edad</th>
+                                    <th class="px-3 py-3.5 w-14 text-center">Sexo</th>
+                                    <th class="px-4 py-3.5 min-w-[160px]">Tutor</th>
+                                    <th class="px-3 py-3.5 w-28">Teléfono</th>
+                                    <th class="px-3 py-3.5 w-24 text-right">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody id="students-table-body" class="text-sm text-slate-700 divide-y divide-slate-100">
-                                <tr><td colspan="6" class="px-6 py-8 text-center text-slate-400">Cargando base de datos...</td></tr>
+                            <tbody id="global-table-body" class="text-xs text-slate-700 divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="9" class="px-6 py-12 text-center text-slate-400">
+                                        No hay alumnos registrados.
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
-                    <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500" id="table-info">
-                        Registros: 0
+                    <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 flex justify-between items-center" id="global-table-footer">
+                        <span>Total de alumnos encontrados: <b id="global-total-count">0</b></span>
                     </div>
                 </div>
             </section>
 
-            <section id="view-import-export" class="view-section max-w-5xl mx-auto">
-                <div class="mb-6">
-                    <h2 class="text-2xl font-bold text-slate-800">Sincronización Excel</h2>
-                    <p class="text-slate-500 text-sm mt-1">Importa y exporta la matriz de datos respetando las columnas estándar.</p>
+            <!-- ═════ VISTA 4: IMPORTACIÓN / EXPORTACIÓN EXCEL ═════ -->
+            <section id="view-import-export" class="view-section max-w-5xl mx-auto space-y-6">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Sincronización con Excel Oficial</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Importa tu archivo matriz (con 18 pestañas de cursos) o exporta la base completa.</p>
                 </div>
 
-                <!-- Alerta de instrucciones requerida -->
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start">
-                    <i class="fa-solid fa-circle-info text-blue-500 mt-0.5 mr-3"></i>
-                    <div class="text-sm text-blue-800">
-                        <strong>Nota importante de compatibilidad:</strong> Para asegurar que las estadísticas se generen correctamente, recomendamos utilizar el archivo de plantilla llamado exactamente <code class="font-bold bg-blue-100 px-1 rounded">REGISTRO DE MATRICULA EN BLANCO.xlsx</code>. El sistema escaneará automáticamente la pestaña de "datos basicos". Para soporte técnico sobre el formato, por favor consulte el archivo de documentación <code class="font-bold bg-blue-100 px-1 rounded">Christian</code>.
+                <!-- Tarjeta Explicativa -->
+                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 flex items-start space-x-3">
+                    <i class="fa-solid fa-circle-info text-sky-600 text-lg mt-0.5 shrink-0"></i>
+                    <div class="text-xs text-sky-900 leading-relaxed">
+                        <strong class="font-bold">Compatibilidad Total con el Formato Institucional:</strong> El importador detectará automáticamente todas las pestañas de cursos (ej. <code class="bg-sky-100 px-1.5 py-0.5 rounded font-bold text-sky-800">1°A</code>, <code class="bg-sky-100 px-1.5 py-0.5 rounded font-bold text-sky-800">1°B</code>, ..., <code class="bg-sky-100 px-1.5 py-0.5 rounded font-bold text-sky-800">6°C</code>) e ignorará pestañas auxiliares como <code class="bg-sky-100 px-1.5 py-0.5 rounded font-bold text-sky-800">EN BLANCO</code> o <code class="bg-sky-100 px-1.5 py-0.5 rounded font-bold text-sky-800">DATOS BASICOS</code>.
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Import Card -->
+                    <!-- Tarjeta Importar -->
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center text-xl mb-4">
+                            <div class="w-12 h-12 bg-sky-100 text-sky-700 rounded-xl flex items-center justify-center text-xl mb-4">
                                 <i class="fa-solid fa-file-import"></i>
                             </div>
-                            <h3 class="text-lg font-bold text-slate-800 mb-1">Carga Masiva</h3>
-                            <p class="text-sm text-slate-500 mb-4">Sube un Excel con las columnas: DNI, Nombres, Apellidos, Edad, Curso, Turno, Genero, Condicion.</p>
-                            
-                            <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer group mb-4" onclick="document.getElementById('excel-file').click()">
-                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2 group-hover:text-indigo-500 transition-colors"></i>
-                                <p class="text-sm font-medium text-slate-600">Seleccionar archivo Excel</p>
-                                <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden" onchange="handleFileSelect(event)">
+                            <h4 class="font-bold text-slate-800 text-base mb-1">Cargar Archivo Excel</h4>
+                            <p class="text-xs text-slate-500 mb-4">
+                                Selecciona el archivo <code class="font-mono text-slate-700 font-bold">2026-REGISTRO DE MATRICULA-E.E.S N3.xlsx</code> o similar.
+                            </p>
+
+                            <!-- Zona Drag & Drop -->
+                            <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-sky-50/50 hover:border-sky-400 transition-all cursor-pointer group mb-4" onclick="document.getElementById('excel-file-input').click()">
+                                <i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-400 group-hover:text-sky-600 transition-colors mb-2"></i>
+                                <p class="text-xs font-semibold text-slate-700">Haz clic para buscar tu archivo Excel</p>
+                                <p class="text-[10px] text-slate-400 mt-1">Soporta formatos .xlsx y .xls</p>
+                                <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="hidden" onchange="handleExcelFileUpload(event)">
                             </div>
                         </div>
-                        <button onclick="processExcel()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition-colors">
-                            Procesar Importación
+
+                        <div id="import-preview-box" class="hidden mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
+                            <p class="font-bold text-slate-800" id="import-file-name">archivo.xlsx</p>
+                            <p class="text-slate-600" id="import-preview-summary">Detectados: 18 cursos · 511 alumnos</p>
+                        </div>
+
+                        <button id="btn-confirm-import" onclick="confirmExcelImport()" disabled class="w-full bg-slate-300 text-slate-500 font-semibold py-2.5 rounded-lg text-xs transition-colors cursor-not-allowed">
+                            Importar y Actualizar Matrícula
                         </button>
                     </div>
 
-                    <!-- Export Card -->
+                    <!-- Tarjeta Exportar -->
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center text-xl mb-4">
+                            <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center text-xl mb-4">
                                 <i class="fa-solid fa-file-export"></i>
                             </div>
-                            <h3 class="text-lg font-bold text-slate-800 mb-1">Exportar Matriz</h3>
-                            <p class="text-sm text-slate-500 mb-4">Descarga los registros filtrados del año actual en un formato compatible con Excel para cruces de datos externos.</p>
-                            
-                            <div class="bg-slate-50 rounded-xl p-6 text-center border border-slate-100 mb-4 flex items-center justify-center h-32">
-                                <i class="fa-solid fa-table-list text-5xl text-slate-300"></i>
+                            <h4 class="font-bold text-slate-800 text-base mb-1">Exportar Libro Matriz</h4>
+                            <p class="text-xs text-slate-500 mb-4">
+                                Genera un archivo Excel oficial con todas las pestañas de cursos formateadas individualmente.
+                            </p>
+
+                            <div class="bg-slate-50 rounded-xl p-6 text-center border border-slate-100 mb-4 flex flex-col items-center justify-center h-44">
+                                <i class="fa-solid fa-file-excel text-5xl text-emerald-500/70 mb-2"></i>
+                                <span class="text-xs font-semibold text-slate-700">Libro Matriz Completo E.E.S N°3</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">Todas las divisiones · Ciclo seleccionado</span>
                             </div>
                         </div>
-                        <button onclick="exportToExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors">
-                            Descargar Datos
+
+                        <button onclick="exportCompleteExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-xs transition-all shadow-sm">
+                            <i class="fa-solid fa-download mr-1.5"></i> Descargar Excel Completo
                         </button>
                     </div>
                 </div>
@@ -254,85 +484,159 @@
         </div>
     </main>
 
-    <div id="modal-add-student" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="modal-content">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 class="text-lg font-bold text-slate-800" id="modal-title">Ficha de Alumno</h3>
-                <button onclick="closeModal('modal-add-student')" class="text-slate-400 hover:text-slate-600">
-                    <i class="fa-solid fa-times text-xl"></i>
+    <!-- ── MODAL: ALTA / EDICIÓN DE ALUMNO ─────────────────────────────────── -->
+    <div id="modal-student" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-200 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden transform scale-95 transition-transform duration-200 flex flex-col max-h-[92vh]" id="modal-student-content">
+            
+            <!-- Header Modal -->
+            <div class="px-6 py-4 bg-gradient-to-r from-slate-900 to-sky-950 text-white flex justify-between items-center shrink-0">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center text-sky-400">
+                        <i class="fa-solid fa-user-graduate" id="modal-student-icon"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm" id="modal-student-title">Nuevo Alumno — Libro Matriz</h3>
+                        <p class="text-[11px] text-slate-300">Ficha oficial de registro de matrícula</p>
+                    </div>
+                </div>
+                <button onclick="closeStudentModal()" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <div class="p-6">
-                <form id="student-form" onsubmit="saveStudent(event)">
-                    <input type="hidden" id="student-id">
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div class="col-span-1 md:col-span-3">
-                            <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2 border-b pb-1">Datos Personales</h4>
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">DNI / Documento *</label>
-                            <input type="text" id="stu-dni" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Nombres *</label>
-                            <input type="text" id="stu-nombres" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Apellidos *</label>
-                            <input type="text" id="stu-apellidos" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Edad (Años)</label>
-                            <input type="number" id="stu-edad" min="3" max="99" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Género</label>
-                            <select id="stu-genero" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
-                                <option value="Femenino">Femenino</option>
-                                <option value="Masculino">Masculino</option>
-                                <option value="Otro">Otro/No especifica</option>
-                            </select>
-                        </div>
 
-                        <div class="col-span-1 md:col-span-3 mt-2">
-                            <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2 border-b pb-1">Datos Académicos</h4>
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Curso / Año Escolar *</label>
-                            <input type="text" id="stu-curso" required placeholder="Ej. 1ro Básico" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Turno</label>
-                            <select id="stu-turno" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
-                                <option value="Mañana">Mañana</option>
-                                <option value="Tarde">Tarde</option>
-                                <option value="Noche">Noche</option>
-                                <option value="Completo">Jornada Completa</option>
-                            </select>
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Condición</label>
-                            <select id="stu-condicion" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
-                                <option value="Nuevo">Nuevo Ingreso</option>
-                                <option value="Regular">Regular (Continuo)</option>
-                                <option value="Repitente">Repitente</option>
-                            </select>
-                        </div>
-                        <div class="col-span-1 md:col-span-3">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Año Lectivo de Matrícula</label>
-                            <select id="stu-anio" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-slate-50">
-                                <option value="2024">2024</option>
-                                <option value="2025">2025</option>
-                                <option value="2026">2026</option>
-                            </select>
+            <!-- Formulario Scrollable -->
+            <div class="p-6 overflow-y-auto space-y-5">
+                <form id="student-form" onsubmit="saveStudentForm(event)" class="space-y-5">
+                    <input type="hidden" id="form-student-id">
+
+                    <!-- SECCIÓN 1: DATOS DE MATRÍCULA -->
+                    <div>
+                        <h5 class="text-[11px] font-bold text-sky-700 uppercase tracking-wider mb-2 flex items-center">
+                            <i class="fa-solid fa-id-card-clip mr-1.5"></i> 1. Datos de Matriculación
+                        </h5>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Curso *</label>
+                                <select id="form-curso-key" required class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-sky-800 outline-none focus:ring-2 focus:ring-sky-500">
+                                    <!-- Options populated by JS -->
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">N° de Orden</label>
+                                <input type="number" id="form-nro-orden" min="1" max="100" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">LM / Folio N°</label>
+                                <input type="text" id="form-nro-matricula" placeholder="Ej. 43/58" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Fecha Inscripción</label>
+                                <input type="text" id="form-fecha-inscr" placeholder="DD/MM/AAAA" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100 mt-4">
-                        <button type="button" onclick="closeModal('modal-add-student')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                        <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">
-                            Guardar Cambios
+
+                    <!-- SECCIÓN 2: DATOS DEL ALUMNO -->
+                    <div>
+                        <h5 class="text-[11px] font-bold text-sky-700 uppercase tracking-wider mb-2 flex items-center">
+                            <i class="fa-solid fa-user mr-1.5"></i> 2. Datos Personales del Alumno
+                        </h5>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Apellido y Nombre *</label>
+                                <input type="text" id="form-apellido-nombre" required placeholder="Ej. PÉREZ, Juan Carlos" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">DNI / Documento *</label>
+                                <input type="text" id="form-nro-doc" required placeholder="Número sin puntos" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Fecha de Nacimiento</label>
+                                <input type="text" id="form-fecha-nac" placeholder="DD/MM/AAAA" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Edad</label>
+                                <input type="number" id="form-edad" min="10" max="99" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Sexo</label>
+                                <select id="form-sexo" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                                    <option value="M">Masculino (M)</option>
+                                    <option value="F">Femenino (F)</option>
+                                    <option value="X">No binario / Otro (X)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nacionalidad</label>
+                                <input type="text" id="form-nacionalidad" value="Argentina" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Domicilio</label>
+                                <input type="text" id="form-domicilio" placeholder="Calle y número / Barrio" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Teléfono / Celular</label>
+                                <input type="text" id="form-telefono" placeholder="Ej. 2262-123456" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: TUTOR O ENCARGADO -->
+                    <div>
+                        <h5 class="text-[11px] font-bold text-sky-700 uppercase tracking-wider mb-2 flex items-center">
+                            <i class="fa-solid fa-user-tie mr-1.5"></i> 3. Datos del Padre / Madre / Tutor
+                        </h5>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nombre Completo Tutor</label>
+                                <input type="text" id="form-nombre-tutor" placeholder="Apellido y Nombre" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nacionalidad Tutor</label>
+                                <input type="text" id="form-nacionalidad-tutor" value="Argentina" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Profesión / Ocupación</label>
+                                <input type="text" id="form-profesion-tutor" placeholder="Ej. Empleado / Comerciante" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 4: MOVIMIENTOS Y OBSERVACIONES -->
+                    <div>
+                        <h5 class="text-[11px] font-bold text-sky-700 uppercase tracking-wider mb-2 flex items-center">
+                            <i class="fa-solid fa-arrows-split-up-and-left mr-1.5"></i> 4. Movimientos, Pases y Observaciones
+                        </h5>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">PASE</label>
+                                <input type="text" id="form-pase" placeholder="Escuela destino / fecha" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Egresó</label>
+                                <input type="text" id="form-egreso" placeholder="Fecha / motivo" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Salida desp. 30/4</label>
+                                <input type="text" id="form-salida-30-4" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Ingresa / Ingr. desp. 30/4</label>
+                                <input type="text" id="form-ingresa" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <div class="col-span-2 sm:col-span-4">
+                                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Observaciones Generales</label>
+                                <textarea id="form-observaciones" rows="2" placeholder="Notas pedagógicas, certificaciones, etc." class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones Footer Modal -->
+                    <div class="pt-3 border-t border-slate-200 flex justify-end space-x-3">
+                        <button type="button" onclick="closeStudentModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
+                        <button type="submit" class="px-5 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg shadow-sm transition-colors flex items-center">
+                            <i class="fa-solid fa-floppy-disk mr-1.5"></i> Guardar en Libro Matriz
                         </button>
                     </div>
                 </form>
@@ -340,384 +644,1048 @@
         </div>
     </div>
 
+    <!-- TOAST NOTIFICATIONS -->
     <div id="toast-container"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        let app, db, auth;
-        let currentUserUid = null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'matriculapro-app';
-        
+    <!-- ── LÓGICA PRINCIPAL (JAVASCRIPT) ──────────────────────────────────── -->
+    <script>
+        // ── ESTADO GLOBAL ───────────────────────────────────────────────────
+        const DB_KEY = 'libro_matriz_ees3_alumnos_v1';
         let allStudents = [];
-        let currentYear = "2024";
-        
-        let chartAge, chartCourseShift, chartGender, chartCondition;
+        let currentCycle = "2026";
+        let currentSelectedCourseKey = null; // ej. "1-A"
+        let parsedExcelData = null;
 
-        try {
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { projectId: "demo" };
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+        // Cursos por defecto (18 divisiones de la E.E.S N°3)
+        const DEFAULT_COURSES = [
+            { anio: 1, division: 'A', turno: 'Mañana', orientacion: 'Ciclo Básico' },
+            { anio: 1, division: 'B', turno: 'Tarde',  orientacion: 'Ciclo Básico' },
+            { anio: 1, division: 'C', turno: 'Tarde',  orientacion: 'Ciclo Básico' },
+            { anio: 2, division: 'A', turno: 'Mañana', orientacion: 'Ciclo Básico' },
+            { anio: 2, division: 'B', turno: 'Tarde',  orientacion: 'Ciclo Básico' },
+            { anio: 2, division: 'C', turno: 'Tarde',  orientacion: 'Ciclo Básico' },
+            { anio: 3, division: 'A', turno: 'Mañana', orientacion: 'Ciclo Básico' },
+            { anio: 3, division: 'B', turno: 'Tarde',  orientacion: 'Ciclo Básico' },
+            { anio: 3, division: 'C', turno: 'Tarde',  orientacion: 'Ciclo Básico' },
+            { anio: 4, division: 'A', turno: 'Mañana', orientacion: 'Ciencias Naturales' },
+            { anio: 4, division: 'B', turno: 'Tarde',  orientacion: 'Ciencias Naturales' },
+            { anio: 4, division: 'C', turno: 'Tarde',  orientacion: 'Economía y Administración' },
+            { anio: 5, division: 'A', turno: 'Mañana', orientacion: 'Ciencias Naturales' },
+            { anio: 5, division: 'B', turno: 'Mañana', orientacion: 'Economía y Administración' },
+            { anio: 5, division: 'C', turno: 'Tarde',  orientacion: 'Economía y Administración' },
+            { anio: 6, division: 'A', turno: 'Mañana', orientacion: 'Ciencias Naturales' },
+            { anio: 6, division: 'B', turno: 'Mañana', orientacion: 'Economía y Administración' },
+            { anio: 6, division: 'C', turno: 'Tarde',  orientacion: 'Economía y Administración' },
+        ];
 
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUserUid = user.uid;
-                    document.getElementById('user-status').textContent = `Conectado (${user.uid.substring(0,6)}...)`;
-                    document.getElementById('user-status').classList.add('text-emerald-600');
-                    loadStudents();
+        // Referencias a gráficos Chart.js
+        let chartCoursesRef = null;
+        let chartGenderRef = null;
+        let chartAgeRef = null;
+        let chartShiftRef = null;
+
+        // ── INICIALIZACIÓN ──────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromLocalStorage();
+            renderSidebarCourses();
+            populateCourseSelects();
+            navigate('dashboard');
+        });
+
+        // ── STORAGE LOCAL (PERSISTENCIA TOTAL) ───────────────────────────────
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem(DB_KEY);
+                if (saved) {
+                    allStudents = JSON.parse(saved);
+                    showToast(`Base local cargada: ${allStudents.length} alumnos`, 'info');
                 } else {
-                    document.getElementById('user-status').textContent = 'Desconectado';
+                    allStudents = [];
                 }
-            });
-
-            if (typeof __initial_auth_token !== 'undefined') {
-                signInWithCustomToken(auth, __initial_auth_token).catch(e => {
-                    console.error("Auth Token Error:", e);
-                    signInAnonymously(auth);
-                });
-            } else {
-                signInAnonymously(auth).catch(console.error);
+            } catch (e) {
+                console.error("Error al cargar localStorage:", e);
+                allStudents = [];
             }
-        } catch (error) {
-            console.error("Firebase Error:", error);
-            showToast("Modo local: Datos no se guardarán en la nube", "info");
         }
 
-        // Navegación UI
-        window.navigate = function(viewId) {
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(allStudents));
+                const dot = document.getElementById('storage-status-dot');
+                if (dot) {
+                    dot.classList.remove('bg-emerald-400');
+                    dot.classList.add('bg-sky-400');
+                    setTimeout(() => {
+                        dot.classList.remove('bg-sky-400');
+                        dot.classList.add('bg-emerald-400');
+                    }, 500);
+                }
+            } catch (e) {
+                console.error("Error al guardar en localStorage:", e);
+                showToast("Error al guardar datos localmente", "error");
+            }
+        }
+
+        function backupJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allStudents, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `Libro_Matriz_Backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Backup JSON descargado", "success");
+        }
+
+        // ── NAVEGACIÓN ENTRE VISTAS ──────────────────────────────────────────
+        function navigate(viewId, params = null) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => {
-                el.classList.remove('bg-indigo-50', 'text-indigo-700');
-                el.classList.add('text-slate-600');
+                el.classList.remove('bg-sky-600', 'text-white', 'shadow-sm');
+                el.classList.add('text-slate-400');
             });
-            
-            document.getElementById('view-' + viewId).classList.add('active');
+            document.querySelectorAll('.sidebar-course-btn').forEach(el => {
+                el.classList.remove('bg-slate-800', 'text-sky-400', 'font-bold');
+                el.classList.add('text-slate-400');
+            });
+
+            const targetSection = document.getElementById('view-' + viewId);
+            if (targetSection) targetSection.classList.add('active');
+
             const activeNav = document.getElementById('nav-' + viewId);
-            if(activeNav) {
-                activeNav.classList.remove('text-slate-600');
-                activeNav.classList.add('bg-indigo-50', 'text-indigo-700');
+            if (activeNav) {
+                activeNav.classList.remove('text-slate-400');
+                activeNav.classList.add('bg-sky-600', 'text-white', 'shadow-sm');
             }
-            if (viewId === 'dashboard') updateDashboard();
-        }
 
-        window.openModal = function(modalId, id = null) {
-            const modal = document.getElementById(modalId);
-            const content = modal.querySelector('#modal-content');
-            
-            if (id) {
-                const s = allStudents.find(x => x.id === id);
-                document.getElementById('modal-title').textContent = "Editar Alumno";
-                document.getElementById('student-id').value = s.id;
-                document.getElementById('stu-dni').value = s.dni || '';
-                document.getElementById('stu-nombres').value = s.nombres || '';
-                document.getElementById('stu-apellidos').value = s.apellidos || '';
-                document.getElementById('stu-edad').value = s.edad || '';
-                document.getElementById('stu-genero').value = s.genero || 'Otro';
-                document.getElementById('stu-curso').value = s.curso || '';
-                document.getElementById('stu-turno').value = s.turno || 'Mañana';
-                document.getElementById('stu-condicion').value = s.condicion || 'Nuevo';
-                document.getElementById('stu-anio').value = s.anioLectivo || currentYear;
-            } else {
-                document.getElementById('modal-title').textContent = "Matricular Alumno";
-                document.getElementById('student-form').reset();
-                document.getElementById('student-id').value = '';
-                document.getElementById('stu-anio').value = currentYear;
+            // Actualizar Títulos de Cabecera
+            const hTitle = document.getElementById('header-title');
+            const hSub = document.getElementById('header-subtitle');
+
+            if (viewId === 'dashboard') {
+                hTitle.textContent = "Panel de Métricas y Estadísticas";
+                hSub.textContent = "Resumen general de la matrícula de la E.E.S N°3";
+                updateDashboardStats();
+            } else if (viewId === 'students') {
+                hTitle.textContent = "Padrón General de Alumnos";
+                hSub.textContent = "Búsqueda global y gestión integral del alumnado";
+                renderGlobalTable();
+            } else if (viewId === 'course-detail') {
+                if (params && params.courseKey) {
+                    currentSelectedCourseKey = params.courseKey;
+                    const courseBtn = document.getElementById('btn-course-' + params.courseKey);
+                    if (courseBtn) {
+                        courseBtn.classList.remove('text-slate-400');
+                        courseBtn.classList.add('bg-slate-800', 'text-sky-400', 'font-bold');
+                    }
+                }
+                loadCourseView(currentSelectedCourseKey);
+            } else if (viewId === 'import-export') {
+                hTitle.textContent = "Sincronización con Excel";
+                hSub.textContent = "Importación masiva por pestañas y exportación oficial";
             }
-            
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
         }
 
-        window.closeModal = function(modalId) {
-            const modal = document.getElementById(modalId);
-            const content = modal.querySelector('#modal-content');
-            modal.classList.add('opacity-0');
-            content.classList.remove('scale-100');
-            content.classList.add('scale-95');
-            setTimeout(() => { modal.classList.add('hidden'); }, 200);
+        function handleCycleChange() {
+            currentCycle = document.getElementById('cycle-selector').value;
+            showToast(`Ciclo Lectivo seleccionado: ${currentCycle}`, 'info');
+            updateDashboardStats();
+            renderSidebarCourses();
+            if (document.getElementById('view-course-detail').classList.contains('active')) {
+                loadCourseView(currentSelectedCourseKey);
+            } else if (document.getElementById('view-students').classList.contains('active')) {
+                renderGlobalTable();
+            }
         }
 
-        window.showToast = function(msg, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const t = document.createElement('div');
-            t.className = `toast ${type}`;
-            let icon = type === 'success' ? 'fa-check' : (type === 'error' ? 'fa-triangle-exclamation' : 'fa-info');
-            t.innerHTML = `<i class="fa-solid ${icon} mr-2"></i> ${msg}`;
-            container.appendChild(t);
-            setTimeout(() => { if(container.contains(t)) t.remove(); }, 3300);
+        // ── SIDEBAR CURSOS ──────────────────────────────────────────────────
+        function renderSidebarCourses() {
+            const container = document.getElementById('sidebar-courses-list');
+            if (!container) return;
+
+            let html = '';
+            let currentAnio = null;
+
+            DEFAULT_COURSES.forEach(c => {
+                const key = `${c.anio}-${c.division}`;
+                const count = allStudents.filter(s => {
+                    const matchCourse = s.anio == c.anio && s.division == c.division;
+                    return currentCycle === 'Todos' ? matchCourse : (matchCourse && (s.ciclo == currentCycle || !s.ciclo));
+                }).length;
+
+                if (c.anio !== currentAnio) {
+                    currentAnio = c.anio;
+                    html += `
+                        <div class="px-2 pt-3 pb-1 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                            ${c.anio}° Año
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <button id="btn-course-${key}" onclick="selectCourse('${key}')" class="sidebar-course-btn w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                        <span class="flex items-center">
+                            <i class="fa-solid fa-users-rectangle w-4 text-[11px] text-sky-500 mr-1.5"></i>
+                            <span>División <b>${c.division}</b></span>
+                        </span>
+                        <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded-full font-mono-num ${count > 0 ? 'text-sky-400 font-semibold' : 'text-slate-600'}">${count}</span>
+                    </button>
+                `;
+            });
+
+            container.innerHTML = html;
         }
 
-        window.handleYearChange = function() {
-            currentYear = document.getElementById('year-filter').value;
-            renderTable();
-            updateDashboard();
+        function populateCourseSelects() {
+            const formSelect = document.getElementById('form-curso-key');
+            const globalFilter = document.getElementById('global-filter-curso');
+
+            let opts = '';
+            DEFAULT_COURSES.forEach(c => {
+                const key = `${c.anio}-${c.division}`;
+                opts += `<option value="${key}">${c.anio}° "${c.division}" (${c.turno} · ${c.orientacion})</option>`;
+            });
+
+            if (formSelect) formSelect.innerHTML = opts;
+            if (globalFilter) {
+                globalFilter.innerHTML = `<option value="">Todos los Cursos</option>` + opts;
+            }
         }
 
-        function loadStudents() {
-            if (!currentUserUid || !db) return;
-            const ref = collection(db, 'artifacts', appId, 'users', currentUserUid, 'students');
-            onSnapshot(ref, (snap) => {
-                allStudents = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderTable();
-                updateDashboard();
-            }, e => console.error(e));
+        function selectCourse(courseKey) {
+            navigate('course-detail', { courseKey });
         }
 
-        window.saveStudent = async function(e) {
-            e.preventDefault();
-            if (!currentUserUid) return showToast("Sin conexión", "error");
+        // ── VISTA DE CURSO ESPECÍFICO ─────────────────────────────────────────
+        function loadCourseView(courseKey) {
+            if (!courseKey) courseKey = "1-A";
+            currentSelectedCourseKey = courseKey;
 
-            const id = document.getElementById('student-id').value || crypto.randomUUID();
-            const data = {
-                dni: document.getElementById('stu-dni').value.trim(),
-                nombres: document.getElementById('stu-nombres').value.trim(),
-                apellidos: document.getElementById('stu-apellidos').value.trim(),
-                edad: parseInt(document.getElementById('stu-edad').value) || 0,
-                genero: document.getElementById('stu-genero').value,
-                curso: document.getElementById('stu-curso').value.trim(),
-                turno: document.getElementById('stu-turno').value,
-                condicion: document.getElementById('stu-condicion').value,
-                anioLectivo: document.getElementById('stu-anio').value,
-                updatedAt: new Date().toISOString()
+            const [anioStr, divStr] = courseKey.split('-');
+            const anio = parseInt(anioStr);
+            const div = divStr.toUpperCase();
+
+            const courseDef = DEFAULT_COURSES.find(c => c.anio === anio && c.division === div) || {
+                anio, division: div, turno: 'Mañana', orientacion: 'Ciclo General'
             };
 
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'users', currentUserUid, 'students', id), data);
-                closeModal('modal-add-student');
-                showToast("Registro guardado exitosamente", "success");
-            } catch (err) {
-                showToast("Error al guardar", "error");
-            }
+            // Header Curso
+            document.getElementById('course-badge').textContent = `${anio}° ${div}`;
+            document.getElementById('course-title').textContent = `${anio}° Año — División "${div}"`;
+            document.getElementById('course-turno').textContent = courseDef.turno;
+            document.getElementById('course-orientacion').textContent = courseDef.orientacion;
+
+            // Filtrar alumnos del curso
+            const courseStudents = allStudents.filter(s => {
+                const match = s.anio == anio && s.division == div;
+                return currentCycle === 'Todos' ? match : (match && (s.ciclo == currentCycle || !s.ciclo));
+            }).sort((a, b) => (a.nro_orden || 999) - (b.nro_orden || 999));
+
+            document.getElementById('course-student-count').textContent = courseStudents.length;
+            document.getElementById('course-table-count').textContent = courseStudents.length;
+
+            renderCourseTable(courseStudents);
         }
 
-        window.deleteStudent = async function(id) {
-            if (!currentUserUid) return;
-            // No alert/confirm allowed, executing directly with Toast feedback
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserUid, 'students', id));
-                showToast("Registro eliminado de la base de datos", "info");
-            } catch (e) {
-                showToast("Error al eliminar", "error");
-            }
-        }
+        function renderCourseTable(students) {
+            const tbody = document.getElementById('course-table-body');
+            if (!tbody) return;
 
-        window.filterTable = function() { renderTable(); }
-
-        function getFiltered() {
-            const q = document.getElementById('search-input').value.toLowerCase();
-            return allStudents.filter(s => {
-                const matchY = currentYear === "Todos" || s.anioLectivo === currentYear;
-                const matchQ = (s.nombres + " " + s.apellidos + " " + s.dni + " " + s.curso).toLowerCase().includes(q);
-                return matchY && matchQ;
-            });
-        }
-
-        function renderTable() {
-            const tbody = document.getElementById('students-table-body');
-            const data = getFiltered();
-            tbody.innerHTML = '';
-            
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-6 text-center text-sm text-slate-500">No hay datos registrados en este filtro.</td></tr>`;
-                document.getElementById('table-info').textContent = `Registros: 0`;
+            if (students.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="12" class="px-6 py-12 text-center text-slate-400 font-medium">
+                            <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300 block"></i>
+                            No hay alumnos registrados en esta división para el ciclo ${currentCycle}.
+                        </td>
+                    </tr>
+                `;
                 return;
             }
 
-            data.forEach(s => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 group';
-                
-                let condColor = 'bg-slate-100 text-slate-600';
-                if(s.condicion === 'Nuevo') condColor = 'bg-blue-100 text-blue-700';
-                if(s.condicion === 'Repitente') condColor = 'bg-orange-100 text-orange-700';
-                if(s.condicion === 'Regular') condColor = 'bg-emerald-100 text-emerald-700';
-
-                tr.innerHTML = `
-                    <td class="px-5 py-3 whitespace-nowrap font-medium text-slate-800">${s.dni}</td>
-                    <td class="px-5 py-3 whitespace-nowrap text-slate-600">${s.apellidos}, ${s.nombres}</td>
-                    <td class="px-5 py-3 whitespace-nowrap text-slate-600">${s.edad || '-'}</td>
-                    <td class="px-5 py-3 whitespace-nowrap text-slate-600">${s.curso} <span class="text-xs text-slate-400">(${s.turno})</span></td>
-                    <td class="px-5 py-3 whitespace-nowrap"><span class="px-2 py-1 rounded text-xs font-semibold ${condColor}">${s.condicion || 'N/A'}</span></td>
-                    <td class="px-5 py-3 whitespace-nowrap text-right">
-                        <button onclick="openModal('modal-add-student', '${s.id}')" class="text-indigo-500 hover:text-indigo-700 mr-2"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash-can"></i></button>
-                    </td>
+            let html = '';
+            students.forEach((s, idx) => {
+                const ord = s.nro_orden || (idx + 1);
+                html += `
+                    <tr class="hover:bg-sky-50/60 transition-colors group">
+                        <td class="px-3 py-2.5 text-center font-mono-num font-bold text-slate-500">${ord}</td>
+                        <td class="px-3 py-2.5 text-center font-mono-num text-sky-700 font-semibold">${s.nro_matricula || '—'}</td>
+                        <td class="px-4 py-2.5 font-bold text-slate-900">${s.apellido_nombre || 'Sin Nombre'}</td>
+                        <td class="px-3 py-2.5 text-center font-mono-num text-slate-600">${s.fecha_nac || '—'}</td>
+                        <td class="px-3 py-2.5 text-center font-mono-num font-semibold text-slate-700">${s.edad || '—'}</td>
+                        <td class="px-3 py-2.5 text-center font-bold ${s.sexo === 'F' ? 'text-pink-600' : 'text-sky-600'}">${s.sexo || '—'}</td>
+                        <td class="px-3 py-2.5 font-mono-num font-medium text-slate-800">${s.nro_doc || '—'}</td>
+                        <td class="px-3 py-2.5 text-slate-700 text-[11px] leading-tight">
+                            <div class="font-medium">${s.nombre_tutor || '—'}</div>
+                            ${s.profesion_tutor ? `<div class="text-slate-400 text-[10px]">${s.profesion_tutor}</div>` : ''}
+                        </td>
+                        <td class="px-3 py-2.5 text-slate-600 text-[11px]">${s.domicilio || '—'}</td>
+                        <td class="px-3 py-2.5 font-mono-num text-slate-700 text-[11px]">${s.telefono || '—'}</td>
+                        <td class="px-3 py-2.5 text-slate-500 text-[11px]">
+                            ${s.pase ? `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] font-bold mr-1">PASE</span>` : ''}
+                            ${s.egreso ? `<span class="bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-[10px] font-bold mr-1">EGRESO</span>` : ''}
+                            <span>${s.observaciones || ''}</span>
+                        </td>
+                        <td class="px-3 py-2.5 text-center no-print">
+                            <div class="flex items-center justify-center space-x-1">
+                                <button onclick="openStudentModal('${s.id}')" title="Editar Ficha" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded transition-colors">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="deleteStudent('${s.id}')" title="Eliminar" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
             });
-            document.getElementById('table-info').textContent = `Registros: ${data.length}`;
+
+            tbody.innerHTML = html;
         }
 
-        function updateDashboard() {
-            const data = getFiltered();
-            
-            // Fórmulas Básicas (Equivalente Excel)
-            const total = data.length;
-            const female = data.filter(s => s.genero === 'Femenino').length;
-            const male = data.filter(s => s.genero === 'Masculino').length;
-            const nuevos = data.filter(s => s.condicion === 'Nuevo').length;
-            
-            const ages = data.map(s => s.edad).filter(e => e > 0);
-            const avgAge = ages.length ? (ages.reduce((a,b)=>a+b, 0) / ages.length).toFixed(1) : 0;
+        function filterCourseTable() {
+            const term = document.getElementById('search-in-course').value.toLowerCase().trim();
+            const [anioStr, divStr] = currentSelectedCourseKey.split('-');
+            const anio = parseInt(anioStr);
+            const div = divStr.toUpperCase();
 
-            document.getElementById('stat-total').textContent = total;
-            document.getElementById('stat-gender-ratio').textContent = total ? `${Math.round((female/total)*100)}% / ${Math.round((male/total)*100)}%` : '0/0';
-            document.getElementById('stat-new').textContent = nuevos;
-            document.getElementById('stat-new-pct').textContent = total ? `(${Math.round((nuevos/total)*100)}%)` : '(0%)';
-            document.getElementById('stat-age-avg').textContent = avgAge;
+            const filtered = allStudents.filter(s => {
+                const match = s.anio == anio && s.division == div;
+                const matchCycle = currentCycle === 'Todos' ? true : (s.ciclo == currentCycle || !s.ciclo);
+                if (!match || !matchCycle) return false;
 
-            // Procesamiento de datos para Gráficos
-            const ageCount = {};
-            const courseShiftData = {};
-            const condCount = { 'Nuevo': 0, 'Regular': 0, 'Repitente': 0 };
+                if (!term) return true;
+                const txt = `${s.apellido_nombre} ${s.nro_doc} ${s.nombre_tutor} ${s.domicilio} ${s.nro_matricula}`.toLowerCase();
+                return txt.includes(term);
+            });
 
-            data.forEach(s => {
+            document.getElementById('course-table-count').textContent = filtered.length;
+            renderCourseTable(filtered);
+        }
+
+        // ── VISTA GLOBAL ────────────────────────────────────────────────────
+        function renderGlobalTable() {
+            filterGlobalTable();
+        }
+
+        function filterGlobalTable() {
+            const term = (document.getElementById('global-search-input')?.value || '').toLowerCase().trim();
+            const selectedCourse = document.getElementById('global-filter-curso')?.value || '';
+
+            const filtered = allStudents.filter(s => {
+                const matchCycle = currentCycle === 'Todos' ? true : (s.ciclo == currentCycle || !s.ciclo);
+                if (!matchCycle) return false;
+
+                if (selectedCourse) {
+                    const [a, d] = selectedCourse.split('-');
+                    if (s.anio != a || s.division != d) return false;
+                }
+
+                if (!term) return true;
+                const fullText = `${s.apellido_nombre} ${s.nro_doc} ${s.nombre_tutor} ${s.nro_matricula} ${s.anio}° ${s.division} ${s.telefono}`.toLowerCase();
+                return fullText.includes(term);
+            });
+
+            const tbody = document.getElementById('global-table-body');
+            document.getElementById('global-total-count').textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="px-6 py-12 text-center text-slate-400">
+                            No se encontraron alumnos con los filtros seleccionados.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(s => {
+                html += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-2.5">
+                            <span class="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded text-[11px]">
+                                ${s.anio}° "${s.division}"
+                            </span>
+                        </td>
+                        <td class="px-3 py-2.5 text-center font-mono-num text-slate-500 font-semibold">${s.nro_orden || '—'}</td>
+                        <td class="px-4 py-2.5 font-bold text-slate-900">${s.apellido_nombre || 'Sin Nombre'}</td>
+                        <td class="px-3 py-2.5 font-mono-num font-medium text-slate-700">${s.nro_doc || '—'}</td>
+                        <td class="px-3 py-2.5 text-center font-mono-num">${s.edad || '—'}</td>
+                        <td class="px-3 py-2.5 text-center font-bold ${s.sexo === 'F' ? 'text-pink-600' : 'text-sky-600'}">${s.sexo || '—'}</td>
+                        <td class="px-4 py-2.5 text-slate-600 text-[11px]">${s.nombre_tutor || '—'}</td>
+                        <td class="px-3 py-2.5 font-mono-num text-slate-600 text-[11px]">${s.telefono || '—'}</td>
+                        <td class="px-3 py-2.5 text-right">
+                            <div class="flex items-center justify-end space-x-1">
+                                <button onclick="selectCourse('${s.anio}-${s.division}')" title="Ir al Curso" class="p-1.5 text-slate-400 hover:text-sky-600 rounded">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </button>
+                                <button onclick="openStudentModal('${s.id}')" title="Editar" class="p-1.5 text-slate-400 hover:text-sky-600 rounded">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // ── DASHBOARD & CHART.JS ────────────────────────────────────────────
+        function updateDashboardStats() {
+            const filtered = allStudents.filter(s => currentCycle === 'Todos' ? true : (s.ciclo == currentCycle || !s.ciclo));
+            const total = filtered.length;
+
+            document.getElementById('kpi-total-alumnos').textContent = total;
+            document.getElementById('kpi-total-cursos-sub').textContent = `${DEFAULT_COURSES.length} Cursos / Divisiones`;
+
+            let fem = 0, masc = 0, otros = 0;
+            let sumEdad = 0, countEdad = 0;
+            let movimientos = 0;
+
+            const courseCounts = {};
+            DEFAULT_COURSES.forEach(c => courseCounts[`${c.anio}°${c.division}`] = 0);
+
+            const ageDist = { '11-12': 0, '13-14': 0, '15-16': 0, '17-18': 0, '19+': 0 };
+            const shiftCounts = { 'Mañana': 0, 'Tarde': 0, 'Noche': 0 };
+
+            filtered.forEach(s => {
+                // Genero
+                if (s.sexo === 'F') fem++;
+                else if (s.sexo === 'M') masc++;
+                else otros++;
+
                 // Edad
-                if(s.edad) ageCount[s.edad] = (ageCount[s.edad] || 0) + 1;
-                
-                // Curso y Turno
-                const c = s.curso || 'Sin Curso';
-                const t = s.turno || 'Mañana';
-                if(!courseShiftData[c]) courseShiftData[c] = { Mañana:0, Tarde:0, Noche:0, Completo:0 };
-                if(courseShiftData[c][t] !== undefined) courseShiftData[c][t]++;
-                
-                // Condición
-                if(s.condicion && condCount[s.condicion] !== undefined) condCount[s.condicion]++;
+                if (s.edad && s.edad > 0) {
+                    sumEdad += s.edad;
+                    countEdad++;
+                    if (s.edad <= 12) ageDist['11-12']++;
+                    else if (s.edad <= 14) ageDist['13-14']++;
+                    else if (s.edad <= 16) ageDist['15-16']++;
+                    else if (s.edad <= 18) ageDist['17-18']++;
+                    else ageDist['19+']++;
+                }
+
+                // Cursos
+                const cKey = `${s.anio}°${s.division}`;
+                if (courseCounts[cKey] !== undefined) courseCounts[cKey]++;
+
+                // Turnos
+                const cDef = DEFAULT_COURSES.find(c => c.anio == s.anio && c.division == s.division);
+                const turno = cDef ? cDef.turno : 'Mañana';
+                if (shiftCounts[turno] !== undefined) shiftCounts[turno]++;
+
+                // Movimientos
+                if (s.pase || s.egreso || s.salida_despues_30_4 || s.ingr_despues_30_4) {
+                    movimientos++;
+                }
             });
 
-            // Re-renderizar Gráficos Chart.js
-            Chart.defaults.font.family = "'Inter', sans-serif";
-            Chart.defaults.color = '#64748b';
+            // KPIs
+            document.getElementById('kpi-fem-masc').textContent = `${fem} / ${masc}`;
+            const femPct = total > 0 ? Math.round((fem / total) * 100) : 0;
+            const mascPct = total > 0 ? Math.round((masc / total) * 100) : 0;
+            document.getElementById('kpi-fem-masc-pct').textContent = `Mujeres: ${femPct}% · Varones: ${mascPct}%`;
 
-            // Gráfico 1: Edades
-            if(chartAge) chartAge.destroy();
-            chartAge = new Chart(document.getElementById('chartAge').getContext('2d'), {
+            const avgAge = countEdad > 0 ? (sumEdad / countEdad).toFixed(1) : '0';
+            document.getElementById('kpi-edad-promedio').textContent = avgAge;
+            document.getElementById('kpi-movimientos-total').textContent = movimientos;
+
+            // Renderizar gráficos
+            renderChartCourses(courseCounts);
+            renderChartGender(fem, masc, otros);
+            renderChartAge(ageDist);
+            renderChartShift(shiftCounts);
+        }
+
+        function renderChartCourses(courseCounts) {
+            const ctx = document.getElementById('chartCourses');
+            if (!ctx) return;
+            if (chartCoursesRef) chartCoursesRef.destroy();
+
+            chartCoursesRef = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(ageCount).map(k => `${k} años`),
-                    datasets: [{ data: Object.values(ageCount), backgroundColor: '#818cf8', borderRadius: 4 }]
+                    labels: Object.keys(courseCounts),
+                    datasets: [{
+                        label: 'Alumnos por Curso',
+                        data: Object.values(courseCounts),
+                        backgroundColor: '#0284c7',
+                        borderRadius: 6,
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
             });
+        }
 
-            // Gráfico 2: Cursos y Turnos (Stacked)
-            if(chartCourseShift) chartCourseShift.destroy();
-            chartCourseShift = new Chart(document.getElementById('chartCourseShift').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(courseShiftData),
-                    datasets: [
-                        { label: 'Mañana', data: Object.keys(courseShiftData).map(k=>courseShiftData[k].Mañana), backgroundColor: '#fde047' },
-                        { label: 'Tarde', data: Object.keys(courseShiftData).map(k=>courseShiftData[k].Tarde), backgroundColor: '#fb923c' },
-                        { label: 'Noche', data: Object.keys(courseShiftData).map(k=>courseShiftData[k].Noche), backgroundColor: '#334155' }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
-            });
+        function renderChartGender(fem, masc, otros) {
+            const ctx = document.getElementById('chartGender');
+            if (!ctx) return;
+            if (chartGenderRef) chartGenderRef.destroy();
 
-            // Gráfico 3: Género
-            if(chartGender) chartGender.destroy();
-            chartGender = new Chart(document.getElementById('chartGender').getContext('2d'), {
+            chartGenderRef = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: ['Femenino', 'Masculino', 'Otro'],
-                    datasets: [{ data: [female, male, total - female - male], backgroundColor: ['#ec4899', '#3b82f6', '#cbd5e1'], borderWidth:0 }]
+                    datasets: [{
+                        data: [fem, masc, otros],
+                        backgroundColor: ['#ec4899', '#0284c7', '#a855f7'],
+                        borderWidth: 0
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '65%' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    cutout: '70%'
+                }
             });
+        }
 
-            // Gráfico 4: Condición (Repitencia)
-            if(chartCondition) chartCondition.destroy();
-            chartCondition = new Chart(document.getElementById('chartCondition').getContext('2d'), {
+        function renderChartAge(ageDist) {
+            const ctx = document.getElementById('chartAge');
+            if (!ctx) return;
+            if (chartAgeRef) chartAgeRef.destroy();
+
+            chartAgeRef = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(ageDist).map(k => k + ' años'),
+                    datasets: [{
+                        label: 'Alumnos',
+                        data: Object.values(ageDist),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderChartShift(shiftCounts) {
+            const ctx = document.getElementById('chartShift');
+            if (!ctx) return;
+            if (chartShiftRef) chartShiftRef.destroy();
+
+            chartShiftRef = new Chart(ctx, {
                 type: 'pie',
                 data: {
-                    labels: ['Nuevo', 'Regular', 'Repitente'],
-                    datasets: [{ data: [condCount['Nuevo'], condCount['Regular'], condCount['Repitente']], backgroundColor: ['#34d399', '#60a5fa', '#f87171'], borderWidth:0 }]
+                    labels: Object.keys(shiftCounts),
+                    datasets: [{
+                        data: Object.values(shiftCounts),
+                        backgroundColor: ['#f59e0b', '#3b82f6', '#64748b'],
+                        borderWidth: 0
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    }
+                }
             });
         }
 
-        let selectedExcel = null;
+        // ── MODAL ALUMNO (NUEVO / EDITAR) ────────────────────────────────────
+        function openStudentModal(studentId = null, defaultCourseKey = null) {
+            const modal = document.getElementById('modal-student');
+            const content = document.getElementById('modal-student-content');
+            const form = document.getElementById('student-form');
+            form.reset();
 
-        window.handleFileSelect = (e) => {
-            selectedExcel = e.target.files[0];
-            if(selectedExcel) showToast(`Archivo cargado: ${selectedExcel.name}`, "info");
+            if (studentId) {
+                const s = allStudents.find(x => x.id === studentId);
+                if (!s) return;
+
+                document.getElementById('modal-student-title').textContent = "Editar Alumno — Libro Matriz";
+                document.getElementById('form-student-id').value = s.id;
+                document.getElementById('form-curso-key').value = `${s.anio}-${s.division}`;
+                document.getElementById('form-nro-orden').value = s.nro_orden || '';
+                document.getElementById('form-nro-matricula').value = s.nro_matricula || '';
+                document.getElementById('form-fecha-inscr').value = s.fecha_inscripcion || '';
+                document.getElementById('form-apellido-nombre').value = s.apellido_nombre || '';
+                document.getElementById('form-nro-doc').value = s.nro_doc || '';
+                document.getElementById('form-fecha-nac').value = s.fecha_nac || '';
+                document.getElementById('form-edad').value = s.edad || '';
+                document.getElementById('form-sexo').value = s.sexo || 'M';
+                document.getElementById('form-nacionalidad').value = s.nacionalidad || 'Argentina';
+                document.getElementById('form-domicilio').value = s.domicilio || '';
+                document.getElementById('form-telefono').value = s.telefono || '';
+                document.getElementById('form-nombre-tutor').value = s.nombre_tutor || '';
+                document.getElementById('form-nacionalidad-tutor').value = s.nacionalidad_tutor || 'Argentina';
+                document.getElementById('form-profesion-tutor').value = s.profesion_tutor || '';
+                document.getElementById('form-pase').value = s.pase || '';
+                document.getElementById('form-egreso').value = s.egreso || '';
+                document.getElementById('form-salida-30-4').value = s.salida_despues_30_4 || '';
+                document.getElementById('form-ingresa').value = s.ingresa || '';
+                document.getElementById('form-observaciones').value = s.observaciones || '';
+            } else {
+                document.getElementById('modal-student-title').textContent = "Nuevo Alumno — Libro Matriz";
+                document.getElementById('form-student-id').value = '';
+                if (defaultCourseKey) {
+                    document.getElementById('form-curso-key').value = defaultCourseKey;
+                }
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
         }
 
-        window.processExcel = () => {
-            if (!selectedExcel) return showToast("Seleccione un archivo primero", "error");
-            if (!currentUserUid) return showToast("Conecte la base de datos", "error");
+        function closeStudentModal() {
+            const modal = document.getElementById('modal-student');
+            const content = document.getElementById('modal-student-content');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function saveStudentForm(event) {
+            event.preventDefault();
+
+            const studentId = document.getElementById('form-student-id').value;
+            const cursoKey = document.getElementById('form-curso-key').value;
+            const [anioStr, divStr] = cursoKey.split('-');
+            const anio = parseInt(anioStr);
+            const div = divStr.toUpperCase();
+
+            const studentData = {
+                id: studentId || ('stu_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6)),
+                anio: anio,
+                division: div,
+                ciclo: currentCycle === 'Todos' ? '2026' : currentCycle,
+                nro_orden: parseInt(document.getElementById('form-nro-orden').value) || null,
+                nro_matricula: document.getElementById('form-nro-matricula').value.trim(),
+                fecha_inscripcion: document.getElementById('form-fecha-inscr').value.trim(),
+                apellido_nombre: document.getElementById('form-apellido-nombre').value.trim(),
+                nro_doc: document.getElementById('form-nro-doc').value.trim(),
+                fecha_nac: document.getElementById('form-fecha-nac').value.trim(),
+                edad: parseInt(document.getElementById('form-edad').value) || null,
+                sexo: document.getElementById('form-sexo').value,
+                nacionalidad: document.getElementById('form-nacionalidad').value.trim(),
+                domicilio: document.getElementById('form-domicilio').value.trim(),
+                telefono: document.getElementById('form-telefono').value.trim(),
+                nombre_tutor: document.getElementById('form-nombre-tutor').value.trim(),
+                nacionalidad_tutor: document.getElementById('form-nacionalidad-tutor').value.trim(),
+                profesion_tutor: document.getElementById('form-profesion-tutor').value.trim(),
+                pase: document.getElementById('form-pase').value.trim(),
+                egreso: document.getElementById('form-egreso').value.trim(),
+                salida_despues_30_4: document.getElementById('form-salida-30-4').value.trim(),
+                ingresa: document.getElementById('form-ingresa').value.trim(),
+                observaciones: document.getElementById('form-observaciones').value.trim(),
+                updated_at: new Date().toISOString()
+            };
+
+            if (studentId) {
+                const idx = allStudents.findIndex(x => x.id === studentId);
+                if (idx !== -1) allStudents[idx] = studentData;
+                showToast("Alumno actualizado correctamente", "success");
+            } else {
+                allStudents.push(studentData);
+                showToast("Alumno registrado en el Libro Matriz", "success");
+            }
+
+            saveToLocalStorage();
+            renderSidebarCourses();
+            closeStudentModal();
+
+            if (document.getElementById('view-course-detail').classList.contains('active')) {
+                loadCourseView(currentSelectedCourseKey);
+            } else if (document.getElementById('view-students').classList.contains('active')) {
+                renderGlobalTable();
+            } else {
+                updateDashboardStats();
+            }
+        }
+
+        function deleteStudent(id) {
+            const s = allStudents.find(x => x.id === id);
+            if (!s) return;
+
+            if (!confirm(`¿Confirma eliminar a "${s.apellido_nombre}" (${s.anio}° "${s.division}") de la matrícula?`)) {
+                return;
+            }
+
+            allStudents = allStudents.filter(x => x.id !== id);
+            saveToLocalStorage();
+            showToast("Registro eliminado", "info");
+            renderSidebarCourses();
+
+            if (document.getElementById('view-course-detail').classList.contains('active')) {
+                loadCourseView(currentSelectedCourseKey);
+            } else if (document.getElementById('view-students').classList.contains('active')) {
+                renderGlobalTable();
+            } else {
+                updateDashboardStats();
+            }
+        }
+
+        // ── IMPORTACIÓN EXCEL INTELIGENTE (SheetJS) ─────────────────────────
+        function handleExcelFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = async (e) => {
+            reader.onload = function(e) {
                 try {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                     
-                    // Buscar 'datos basicos' (requisito)
-                    let sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('datos basicos')) || wb.SheetNames[0];
-                    const json = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+                    parsedExcelData = parseOfficialExcelWorkbook(workbook);
 
-                    let count = 0;
-                    for (const row of json) {
-                        const keys = Object.keys(row);
-                        const findVal = (arr) => {
-                            const k = keys.find(key => arr.some(a => key.toLowerCase().includes(a)));
-                            return k ? String(row[k]).trim() : "";
-                        };
+                    const box = document.getElementById('import-preview-box');
+                    const btn = document.getElementById('btn-confirm-import');
+                    
+                    document.getElementById('import-file-name').textContent = `📄 ${file.name}`;
+                    document.getElementById('import-preview-summary').innerHTML = `
+                        Cursos detectados: <b>${parsedExcelData.cursos.length}</b> · Alumnos encontrados: <b>${parsedExcelData.totalAlumnos}</b><br>
+                        <span class="text-slate-400">Pestañas omitidas (no cursos): ${parsedExcelData.hojasIgnoradas.join(', ') || 'Ninguna'}</span>
+                    `;
 
-                        const dni = findVal(['dni', 'doc']);
-                        const nom = findVal(['nombre']);
-                        const ape = findVal(['apellido']);
-                        const edd = parseInt(findVal(['edad'])) || 0;
-                        const cur = findVal(['curso', 'grado', 'año', 'clase']);
-                        const tur = findVal(['turno']) || 'Mañana';
-                        const gen = findVal(['genero', 'sexo']) || 'Otro';
-                        const con = findVal(['condicion', 'estado', 'repitente']) || 'Nuevo';
+                    box.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.classList.remove('bg-slate-300', 'text-slate-500', 'cursor-not-allowed');
+                    btn.classList.add('bg-sky-600', 'hover:bg-sky-700', 'text-white', 'cursor-pointer');
 
-                        if (nom || ape || dni) {
-                            const data = {
-                                dni: dni, nombres: nom, apellidos: ape, edad: edd, curso: cur,
-                                turno: tur.charAt(0).toUpperCase() + tur.slice(1).toLowerCase(),
-                                genero: gen.charAt(0).toUpperCase() + gen.slice(1).toLowerCase(),
-                                condicion: con.charAt(0).toUpperCase() + con.slice(1).toLowerCase(),
-                                anioLectivo: currentYear, updatedAt: new Date().toISOString()
-                            };
-                            await setDoc(doc(db, 'artifacts', appId, 'users', currentUserUid, 'students', crypto.randomUUID()), data);
-                            count++;
-                        }
-                    }
-                    showToast(`Se importaron ${count} alumnos al ciclo ${currentYear}`, "success");
-                    document.getElementById('excel-file').value = ''; 
-                    selectedExcel = null;
+                    showToast(`Excel analizado: ${parsedExcelData.totalAlumnos} alumnos en ${parsedExcelData.cursos.length} divisiones`, 'success');
                 } catch (err) {
-                    showToast("Error leyendo Excel", "error");
-                    console.error(err);
+                    console.error("Error al procesar Excel:", err);
+                    showToast("Error al leer el archivo Excel: " + err.message, "error");
                 }
             };
-            reader.readAsArrayBuffer(selectedExcel);
+            reader.readAsArrayBuffer(file);
         }
 
-        window.exportToExcel = () => {
-            const data = getFiltered();
-            if(!data.length) return showToast("No hay datos para exportar", "error");
+        function parseOfficialExcelWorkbook(wb) {
+            const cursos = [];
+            const hojasIgnoradas = [];
+            let totalAlumnos = 0;
 
-            const formatted = data.map(s => ({
-                "DNI": s.dni, "Apellidos": s.apellidos, "Nombres": s.nombres, 
-                "Edad": s.edad, "Curso": s.curso, "Turno": s.turno, 
-                "Género": s.genero, "Condición": s.condicion, "Año": s.anioLectivo
-            }));
+            const norm = (txt) => {
+                if (!txt) return '';
+                return String(txt).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            };
 
-            const ws = XLSX.utils.json_to_sheet(formatted);
+            wb.SheetNames.forEach(sheetName => {
+                const normName = norm(sheetName);
+                if (normName.includes('blanco') || normName.includes('datos basicos') || normName.includes('resumen')) {
+                    hojasIgnoradas.push(sheetName);
+                    return;
+                }
+
+                // Match 1°A, 1A, 2° B, etc.
+                const match = sheetName.match(/([1-6])\s*[\°\^o]?\s*([A-Za-z])/i);
+                if (!match) {
+                    hojasIgnoradas.push(sheetName);
+                    return;
+                }
+
+                const anio = parseInt(match[1]);
+                const division = match[2].toUpperCase();
+                const ws = wb.Sheets[sheetName];
+
+                // Convertir hoja a JSON tabular
+                const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                if (!rawRows || rawRows.length < 6) return;
+
+                // Detectar fila de cabeceras (entre filas 4 y 8)
+                let headerRowIdx = 5; // default row 6 (0-indexed 5)
+                for (let r = 3; r <= 8 && r < rawRows.length; r++) {
+                    const rowText = (rawRows[r] || []).map(norm).join(' ');
+                    if (rowText.includes('apellido') || rowText.includes('nombre') || rowText.includes('alumno')) {
+                        headerRowIdx = r;
+                        break;
+                    }
+                }
+
+                const headers = (rawRows[headerRowIdx] || []).map(norm);
+                const colMap = {};
+                let foundTutor = false;
+
+                headers.forEach((h, colIdx) => {
+                    if (!h) return;
+                    if (h.includes('ord') && !colMap.nro_orden) colMap.nro_orden = colIdx;
+                    else if (h.includes('inscr') && !colMap.fecha_inscripcion) colMap.fecha_inscripcion = colIdx;
+                    else if ((h.includes('matric') || h.includes('folio') || h.includes('lm')) && !colMap.nro_matricula) colMap.nro_matricula = colIdx;
+                    else if ((h.includes('apellido') || h.includes('alumno')) && !colMap.apellido_nombre) colMap.apellido_nombre = colIdx;
+                    else if ((h.includes('nac') && h.includes('fecha')) || h.includes('f. nac') || h === 'fecha nac.') colMap.fecha_nac = colIdx;
+                    else if (h.includes('edad') && !colMap.edad) colMap.edad = colIdx;
+                    else if (h.includes('sexo') && !colMap.sexo) colMap.sexo = colIdx;
+                    else if ((h.includes('doc') || h.includes('dni')) && !colMap.doc) colMap.doc = colIdx;
+                    else if ((h.includes('padre') || h.includes('tutor') || h.includes('encargad')) && !colMap.nombre_tutor) {
+                        colMap.nombre_tutor = colIdx;
+                        foundTutor = true;
+                    }
+                    else if (h.includes('nacionalidad') || h.includes('nac.')) {
+                        if (foundTutor && !colMap.nacionalidad_tutor) colMap.nacionalidad_tutor = colIdx;
+                        else if (!colMap.nacionalidad) colMap.nacionalidad = colIdx;
+                    }
+                    else if ((h.includes('profes') || h.includes('ocupac')) && !colMap.profesion_tutor) colMap.profesion_tutor = colIdx;
+                    else if ((h.includes('domicil') || h.includes('direcc')) && !colMap.domicilio) colMap.domicilio = colIdx;
+                    else if ((h.includes('tel') || h.includes('cel')) && !colMap.telefono) colMap.telefono = colIdx;
+                    else if (h.includes('egres') && !colMap.egreso) colMap.egreso = colIdx;
+                    else if (h.includes('pase') && !colMap.pase) colMap.pase = colIdx;
+                    else if (h.includes('salida') && !colMap.salida_despues_30_4) colMap.salida_despues_30_4 = colIdx;
+                    else if (h.includes('ingresa') && !colMap.ingresa) colMap.ingresa = colIdx;
+                    else if (h.includes('ingr') && !colMap.ingr_despues_30_4) colMap.ingr_despues_30_4 = colIdx;
+                    else if ((h.includes('obs') || h.includes('observ')) && !colMap.observaciones) colMap.observaciones = colIdx;
+                });
+
+                const alumnos = [];
+                for (let r = headerRowIdx + 1; r < rawRows.length; r++) {
+                    const row = rawRows[r] || [];
+                    const nameCol = colMap.apellido_nombre !== undefined ? colMap.apellido_nombre : 3;
+                    const nameVal = String(row[nameCol] || '').trim();
+                    const ordVal = colMap.nro_orden !== undefined ? row[colMap.nro_orden] : row[0];
+
+                    if (!nameVal && !ordVal) continue;
+                    if (['apellido y nombre', 'nombre', 'none', '30/6/2026'].includes(nameVal.toLowerCase())) continue;
+
+                    // Formateo de Fechas si vienen como objeto Date
+                    const formatDate = (val) => {
+                        if (!val) return '';
+                        if (val instanceof Date) {
+                            const d = String(val.getDate()).padStart(2, '0');
+                            const m = String(val.getMonth() + 1).padStart(2, '0');
+                            const y = val.getFullYear();
+                            return `${d}/${m}/${y}`;
+                        }
+                        return String(val).trim();
+                    };
+
+                    // Extraer DNI limpio
+                    let docVal = colMap.doc !== undefined ? String(row[colMap.doc] || '').trim() : '';
+                    docVal = docVal.replace(/^(DNI|LC|LE|CI)\s*[:.]?\s*/i, '').trim();
+
+                    const alumno = {
+                        id: `imp_${anio}_${division}_${r}_${Date.now()}`,
+                        anio: anio,
+                        division: division,
+                        ciclo: currentCycle === 'Todos' ? '2026' : currentCycle,
+                        nro_orden: parseInt(ordVal) || (alumnos.length + 1),
+                        nro_matricula: colMap.nro_matricula !== undefined ? String(row[colMap.nro_matricula] || '').trim() : '',
+                        fecha_inscripcion: colMap.fecha_inscripcion !== undefined ? formatDate(row[colMap.fecha_inscripcion]) : '',
+                        apellido_nombre: nameVal,
+                        fecha_nac: colMap.fecha_nac !== undefined ? formatDate(row[colMap.fecha_nac]) : '',
+                        edad: colMap.edad !== undefined ? parseInt(row[colMap.edad]) || null : null,
+                        sexo: colMap.sexo !== undefined ? String(row[colMap.sexo] || '').trim().toUpperCase() : '',
+                        nacionalidad: colMap.nacionalidad !== undefined ? String(row[colMap.nacionalidad] || '').trim() : 'Argentina',
+                        nro_doc: docVal,
+                        nombre_tutor: colMap.nombre_tutor !== undefined ? String(row[colMap.nombre_tutor] || '').trim() : '',
+                        nacionalidad_tutor: colMap.nacionalidad_tutor !== undefined ? String(row[colMap.nacionalidad_tutor] || '').trim() : '',
+                        profesion_tutor: colMap.profesion_tutor !== undefined ? String(row[colMap.profesion_tutor] || '').trim() : '',
+                        domicilio: colMap.domicilio !== undefined ? String(row[colMap.domicilio] || '').trim() : '',
+                        telefono: colMap.telefono !== undefined ? String(row[colMap.telefono] || '').trim() : '',
+                        egreso: colMap.egreso !== undefined ? String(row[colMap.egreso] || '').trim() : '',
+                        pase: colMap.pase !== undefined ? String(row[colMap.pase] || '').trim() : '',
+                        salida_despues_30_4: colMap.salida_despues_30_4 !== undefined ? String(row[colMap.salida_despues_30_4] || '').trim() : '',
+                        ingresa: colMap.ingresa !== undefined ? String(row[colMap.ingresa] || '').trim() : '',
+                        ingr_despues_30_4: colMap.ingr_despues_30_4 !== undefined ? String(row[colMap.ingr_despues_30_4] || '').trim() : '',
+                        observaciones: colMap.observaciones !== undefined ? String(row[colMap.observaciones] || '').trim() : '',
+                    };
+
+                    alumnos.push(alumno);
+                }
+
+                totalAlumnos += alumnos.length;
+                cursos.push({ anio, division, sheetName, alumnos });
+            });
+
+            return { cursos, totalAlumnos, hojasIgnoradas };
+        }
+
+        function confirmExcelImport() {
+            if (!parsedExcelData || !parsedExcelData.cursos || parsedExcelData.cursos.length === 0) {
+                showToast("No hay datos listos para importar", "error");
+                return;
+            }
+
+            const confirmMsg = `¿Desea importar los ${parsedExcelData.totalAlumnos} alumnos distribuidos en ${parsedExcelData.cursos.length} cursos?\n(Los alumnos de estos cursos serán actualizados en la base de datos local).`;
+            if (!confirm(confirmMsg)) return;
+
+            // Reemplazar o actualizar alumnos de esos cursos
+            const importedCourseKeys = new Set(parsedExcelData.cursos.map(c => `${c.anio}-${c.division}`));
+
+            // Conservar alumnos de cursos que no vienen en el Excel
+            let updatedList = allStudents.filter(s => !importedCourseKeys.has(`${s.anio}-${s.division}`));
+
+            parsedExcelData.cursos.forEach(c => {
+                c.alumnos.forEach(a => updatedList.push(a));
+            });
+
+            allStudents = updatedList;
+            saveToLocalStorage();
+            renderSidebarCourses();
+
+            showToast(`✅ Importación exitosa: ${parsedExcelData.totalAlumnos} alumnos cargados`, 'success');
+            navigate('dashboard');
+        }
+
+        // ── EXPORTACIÓN EXCEL OFICIAL MULTI-HOJA ─────────────────────────────
+        function exportCompleteExcel() {
+            if (allStudents.length === 0) {
+                showToast("No hay alumnos para exportar", "info");
+                return;
+            }
+
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "datos basicos");
-            XLSX.writeFile(wb, `Matricula_${currentYear}.xlsx`);
-            showToast("Exportación exitosa", "success");
+
+            DEFAULT_COURSES.forEach(c => {
+                const sheetName = `${c.anio}°${c.division}`;
+                const students = allStudents.filter(s => s.anio == c.anio && s.division == c.division);
+
+                const dataRows = [
+                    ["REGISTRO DE MATRÍCULA"],
+                    ["E.E.S N°3 - \"MALVINAS ARGENTINAS\""],
+                    ["AÑO:", `${c.anio}°`, "DIV:", c.division, "TURNO:", c.turno, "ORIENTACIÓN:", c.orientacion, "AÑO LECTIVO:", currentCycle],
+                    [],
+                    [
+                        "N° Ord.", "Fecha Inscr.", "LM Y FOLIO N°", "Apellido y nombre",
+                        "Fecha de nac.", "Edad", "Sexo", "Nacionalidad", "Tipo y N° de doc.",
+                        "Nombre del padre, Tutor o Encargado", "Nacionalidad", "Profesión",
+                        "Domicilio", "Tel.", "Egresó", "PASE", "Salida desp. 30/4",
+                        "INGRESA", "Ingr. desp. 30/4", "Observaciones"
+                    ]
+                ];
+
+                students.forEach((s, idx) => {
+                    dataRows.push([
+                        s.nro_orden || (idx + 1),
+                        s.fecha_inscripcion || '',
+                        s.nro_matricula || '',
+                        s.apellido_nombre || '',
+                        s.fecha_nac || '',
+                        s.edad || '',
+                        s.sexo || '',
+                        s.nacionalidad || '',
+                        s.nro_doc || '',
+                        s.nombre_tutor || '',
+                        s.nacionalidad_tutor || '',
+                        s.profesion_tutor || '',
+                        s.domicilio || '',
+                        s.telefono || '',
+                        s.egreso || '',
+                        s.pase || '',
+                        s.salida_despues_30_4 || '',
+                        s.ingresa || '',
+                        s.ingr_despues_30_4 || '',
+                        s.observaciones || ''
+                    ]);
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(dataRows);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+
+            XLSX.writeFile(wb, `Libro_Matriz_EES3_Completo_${currentCycle}.xlsx`);
+            showToast("Archivo Excel descargado con éxito", "success");
         }
 
+        function exportCurrentCourseExcel() {
+            if (!currentSelectedCourseKey) return;
+            const [aStr, dStr] = currentSelectedCourseKey.split('-');
+            const anio = parseInt(aStr);
+            const div = dStr.toUpperCase();
+
+            const cDef = DEFAULT_COURSES.find(c => c.anio === anio && c.division === div) || { anio, division: div, turno: 'Mañana', orientacion: '' };
+            const students = allStudents.filter(s => s.anio == anio && s.division == div);
+
+            const wb = XLSX.utils.book_new();
+            const sheetName = `${anio}°${div}`;
+
+            const dataRows = [
+                ["REGISTRO DE MATRÍCULA"],
+                ["E.E.S N°3 - \"MALVINAS ARGENTINAS\""],
+                ["AÑO:", `${anio}°`, "DIV:", div, "TURNO:", cDef.turno, "ORIENTACIÓN:", cDef.orientacion, "AÑO LECTIVO:", currentCycle],
+                [],
+                [
+                    "N° Ord.", "Fecha Inscr.", "LM Y FOLIO N°", "Apellido y nombre",
+                    "Fecha de nac.", "Edad", "Sexo", "Nacionalidad", "Tipo y N° de doc.",
+                    "Nombre del padre, Tutor o Encargado", "Nacionalidad", "Profesión",
+                    "Domicilio", "Tel.", "Egresó", "PASE", "Salida desp. 30/4",
+                    "INGRESA", "Ingr. desp. 30/4", "Observaciones"
+                ]
+            ];
+
+            students.forEach((s, idx) => {
+                dataRows.push([
+                    s.nro_orden || (idx + 1),
+                    s.fecha_inscripcion || '',
+                    s.nro_matricula || '',
+                    s.apellido_nombre || '',
+                    s.fecha_nac || '',
+                    s.edad || '',
+                    s.sexo || '',
+                    s.nacionalidad || '',
+                    s.nro_doc || '',
+                    s.nombre_tutor || '',
+                    s.nacionalidad_tutor || '',
+                    s.profesion_tutor || '',
+                    s.domicilio || '',
+                    s.telefono || '',
+                    s.egreso || '',
+                    s.pase || '',
+                    s.salida_despues_30_4 || '',
+                    s.ingresa || '',
+                    s.ingr_despues_30_4 || '',
+                    s.observaciones || ''
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(dataRows);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, `Matricula_${anio}${div}_${currentCycle}.xlsx`);
+            showToast(`Curso ${anio}° ${div} exportado`, "success");
+        }
+
+        function printCourseRegistry() {
+            window.print();
+        }
+
+        // ── TOASTS ──────────────────────────────────────────────────────────
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const t = document.createElement('div');
+            t.className = `toast ${type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-slate-800')}`;
+            
+            const icon = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+            t.innerHTML = `<i class="fa-solid ${icon} mr-2.5 text-base"></i> <span>${msg}</span>`;
+
+            container.appendChild(t);
+            setTimeout(() => {
+                t.style.opacity = '0';
+                t.style.transform = 'translateY(10px)';
+                t.style.transition = 'all 0.3s ease';
+                setTimeout(() => t.remove(), 300);
+            }, 3500);
+        }
     </script>
 </body>
 </html>
