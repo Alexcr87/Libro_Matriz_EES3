@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Matrícula Pro - Estadísticas Avanzadas</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Bibliotecas Externas -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .view-section.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            min-width: 250px; padding: 16px; border-radius: 8px; color: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            animation: slideInRight 0.3s forwards, fadeOut 0.3s forwards 3s;
+        }
+        .toast.success { background-color: #10b981; }
+        .toast.error { background-color: #ef4444; }
+        .toast.info { background-color: #3b82f6; }
+
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; display: none; } }
+    </style>
+</head>
+<body class="text-slate-800 h-screen overflow-hidden flex">
+
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex z-10 shadow-sm">
+        <div>
+            <div class="h-16 flex items-center px-6 border-b border-slate-100">
+                <i class="fa-solid fa-graduation-cap text-indigo-600 text-2xl mr-3"></i>
+                <h1 class="font-bold text-lg text-slate-800 tracking-tight">Matrícula<span class="text-indigo-600">Pro</span></h1>
+            </div>
+            <nav class="p-4 space-y-1">
+                <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg bg-indigo-50 text-indigo-700 transition-colors">
+                    <i class="fa-solid fa-chart-pie w-6"></i> Estadísticas
+                </button>
+                <button onclick="navigate('students')" id="nav-students" class="nav-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i class="fa-solid fa-users w-6"></i> Registro Alumnos
+                </button>
+                <button onclick="navigate('import-export')" id="nav-import-export" class="nav-btn w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i class="fa-solid fa-file-excel w-6"></i> Sincronización
+                </button>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-slate-100 bg-slate-50">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                    <i class="fa-solid fa-cloud"></i>
+                </div>
+                <div class="ml-3 overflow-hidden">
+                    <p class="text-sm font-medium text-slate-700 truncate">Firebase Sync</p>
+                    <p class="text-xs text-slate-500 truncate" id="user-status">Conectando...</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 shadow-sm">
+            <div class="flex items-center md:hidden">
+                <i class="fa-solid fa-graduation-cap text-indigo-600 text-xl mr-2"></i>
+                <span class="font-bold text-slate-800">MatrículaPro</span>
+            </div>
+            
+            <div class="flex items-center space-x-4 ml-auto">
+                <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <i class="fa-regular fa-calendar-alt text-slate-400"></i>
+                    <select id="year-filter" onchange="handleYearChange()" class="bg-transparent text-sm font-bold text-indigo-700 focus:outline-none cursor-pointer">
+                        <option value="2024">Ciclo 2024</option>
+                        <option value="2025">Ciclo 2025</option>
+                        <option value="2026">Ciclo 2026</option>
+                        <option value="Todos">Histórico Completo</option>
+                    </select>
+                </div>
+                <button onclick="openModal('modal-add-student')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center transform active:scale-95">
+                    <i class="fa-solid fa-user-plus mr-2"></i> Matricular
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+
+            <section id="view-dashboard" class="view-section active max-w-7xl mx-auto">
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Métricas Académicas</h2>
+                        <p class="text-slate-500 text-sm mt-1">Análisis detallado extraído de los registros básicos.</p>
+                    </div>
+                </div>
+
+                <!-- Tarjetas KPI -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Matrícula Total</p>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <span class="text-3xl font-bold text-slate-800" id="stat-total">0</span>
+                            <span class="text-sm font-medium text-emerald-500"><i class="fa-solid fa-users"></i></span>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">% Femenino / Masculino</p>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <span class="text-3xl font-bold text-slate-800" id="stat-gender-ratio">0/0</span>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nuevos Ingresos</p>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <span class="text-3xl font-bold text-slate-800" id="stat-new">0</span>
+                            <span class="text-sm font-medium text-blue-500" id="stat-new-pct">(0%)</span>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Edad Promedio</p>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <span class="text-3xl font-bold text-slate-800" id="stat-age-avg">0</span>
+                            <span class="text-sm font-medium text-slate-400">años</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Distribución por Edades</h3>
+                        <div class="relative h-64"><canvas id="chartAge"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Alumnos por Curso y Turno</h3>
+                        <div class="relative h-64"><canvas id="chartCourseShift"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Desglose por Género</h3>
+                        <div class="relative h-64 flex justify-center"><canvas id="chartGender"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-700 mb-4 border-b pb-2">Condición del Alumnado (Repitencia)</h3>
+                        <div class="relative h-64 flex justify-center"><canvas id="chartCondition"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-students" class="view-section max-w-7xl mx-auto">
+                <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Registro General</h2>
+                    </div>
+                    <div class="relative w-full sm:w-80">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="search-input" onkeyup="filterTable()" placeholder="Buscar por DNI, Nombre o Curso..." class="pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full shadow-sm">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                                    <th class="px-5 py-4 font-medium">DNI</th>
+                                    <th class="px-5 py-4 font-medium">Alumno</th>
+                                    <th class="px-5 py-4 font-medium">Edad</th>
+                                    <th class="px-5 py-4 font-medium">Curso / Turno</th>
+                                    <th class="px-5 py-4 font-medium">Condición</th>
+                                    <th class="px-5 py-4 font-medium text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="students-table-body" class="text-sm text-slate-700 divide-y divide-slate-100">
+                                <tr><td colspan="6" class="px-6 py-8 text-center text-slate-400">Cargando base de datos...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500" id="table-info">
+                        Registros: 0
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-import-export" class="view-section max-w-5xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Sincronización Excel</h2>
+                    <p class="text-slate-500 text-sm mt-1">Importa y exporta la matriz de datos respetando las columnas estándar.</p>
+                </div>
+
+                <!-- Alerta de instrucciones requerida -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start">
+                    <i class="fa-solid fa-circle-info text-blue-500 mt-0.5 mr-3"></i>
+                    <div class="text-sm text-blue-800">
+                        <strong>Nota importante de compatibilidad:</strong> Para asegurar que las estadísticas se generen correctamente, recomendamos utilizar el archivo de plantilla llamado exactamente <code class="font-bold bg-blue-100 px-1 rounded">REGISTRO DE MATRICULA EN BLANCO.xlsx</code>. El sistema escaneará automáticamente la pestaña de "datos basicos". Para soporte técnico sobre el formato, por favor consulte el archivo de documentación <code class="font-bold bg-blue-100 px-1 rounded">Christian</code>.
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Import Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center text-xl mb-4">
+                                <i class="fa-solid fa-file-import"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-1">Carga Masiva</h3>
+                            <p class="text-sm text-slate-500 mb-4">Sube un Excel con las columnas: DNI, Nombres, Apellidos, Edad, Curso, Turno, Genero, Condicion.</p>
+                            
+                            <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer group mb-4" onclick="document.getElementById('excel-file').click()">
+                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2 group-hover:text-indigo-500 transition-colors"></i>
+                                <p class="text-sm font-medium text-slate-600">Seleccionar archivo Excel</p>
+                                <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden" onchange="handleFileSelect(event)">
+                            </div>
+                        </div>
+                        <button onclick="processExcel()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition-colors">
+                            Procesar Importación
+                        </button>
+                    </div>
+
+                    <!-- Export Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center text-xl mb-4">
+                                <i class="fa-solid fa-file-export"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-1">Exportar Matriz</h3>
+                            <p class="text-sm text-slate-500 mb-4">Descarga los registros filtrados del año actual en un formato compatible con Excel para cruces de datos externos.</p>
+                            
+                            <div class="bg-slate-50 rounded-xl p-6 text-center border border-slate-100 mb-4 flex items-center justify-center h-32">
+                                <i class="fa-solid fa-table-list text-5xl text-slate-300"></i>
+                            </div>
+                        </div>
+                        <button onclick="exportToExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors">
+                            Descargar Datos
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="modal-add-student" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="modal-content">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-title">Ficha de Alumno</h3>
+                <button onclick="closeModal('modal-add-student')" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="student-form" onsubmit="saveStudent(event)">
+                    <input type="hidden" id="student-id">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div class="col-span-1 md:col-span-3">
+                            <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2 border-b pb-1">Datos Personales</h4>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">DNI / Documento *</label>
+                            <input type="text" id="stu-dni" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Nombres *</label>
+                            <input type="text" id="stu-nombres" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Apellidos *</label>
+                            <input type="text" id="stu-apellidos" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Edad (Años)</label>
+                            <input type="number" id="stu-edad" min="3" max="99" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Género</label>
+                            <select id="stu-genero" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
+                                <option value="Femenino">Femenino</option>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Otro">Otro/No especifica</option>
+                            </select>
+                        </div>
+
+                        <div class="col-span-1 md:col-span-3 mt-2">
+                            <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2 border-b pb-1">Datos Académicos</h4>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Curso / Año Escolar *</label>
+                            <input type="text" id="stu-curso" required placeholder="Ej. 1ro Básico" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Turno</label>
+                            <select id="stu-turno" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
+                                <option value="Mañana">Mañana</option>
+                                <option value="Tarde">Tarde</option>
+                                <option value="Noche">Noche</option>
+                                <option value="Completo">Jornada Completa</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Condición</label>
+                            <select id="stu-condicion" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
+                                <option value="Nuevo">Nuevo Ingreso</option>
+                                <option value="Regular">Regular (Continuo)</option>
+                                <option value="Repitente">Repitente</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1 md:col-span-3">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Año Lectivo de Matrícula</label>
+                            <select id="stu-anio" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-slate-50">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100 mt-4">
+                        <button type="button" onclick="closeModal('modal-add-student')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                        <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let app, db, auth;
+        let currentUserUid = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'matriculapro-app';
+        
+        let allStudents = [];
+        let currentYear = "2024";
+        
+        let chartAge, chartCourseShift, chartGender, chartCondition;
+
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { projectId: "demo" };
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUserUid = user.uid;
+                    document.getElementById('user-status').textContent = `Conectado (${user.uid.substring(0,6)}...)`;
+                    document.getElementById('user-status').classList.add('text-emerald-600');
+                    loadStudents();
+                } else {
+                    document.getElementById('user-status').textContent = 'Desconectado';
+                }
+            });
+
+            if (typeof __initial_auth_token !== 'undefined') {
+                signInWithCustomToken(auth, __initial_auth_token).catch(e => {
+                    console.error("Auth Token Error:", e);
+                    signInAnonymously(auth);
+                });
+            } else {
+                signInAnonymously(auth).catch(console.error);
+            }
+        } catch (error) {
+            console.error("Firebase Error:", error);
+            showToast("Modo local: Datos no se guardarán en la nube", "info");
+        }
+
+        // Navegación UI
+        window.navigate = function(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => {
+                el.classList.remove('bg-indigo-50', 'text-indigo-700');
+                el.classList.add('text-slate-600');
+            });
+            
+            document.getElementById('view-' + viewId).classList.add('active');
+            const activeNav = document.getElementById('nav-' + viewId);
+            if(activeNav) {
+                activeNav.classList.remove('text-slate-600');
+                activeNav.classList.add('bg-indigo-50', 'text-indigo-700');
+            }
+            if (viewId === 'dashboard') updateDashboard();
+        }
+
+        window.openModal = function(modalId, id = null) {
+            const modal = document.getElementById(modalId);
+            const content = modal.querySelector('#modal-content');
+            
+            if (id) {
+                const s = allStudents.find(x => x.id === id);
+                document.getElementById('modal-title').textContent = "Editar Alumno";
+                document.getElementById('student-id').value = s.id;
+                document.getElementById('stu-dni').value = s.dni || '';
+                document.getElementById('stu-nombres').value = s.nombres || '';
+                document.getElementById('stu-apellidos').value = s.apellidos || '';
+                document.getElementById('stu-edad').value = s.edad || '';
+                document.getElementById('stu-genero').value = s.genero || 'Otro';
+                document.getElementById('stu-curso').value = s.curso || '';
+                document.getElementById('stu-turno').value = s.turno || 'Mañana';
+                document.getElementById('stu-condicion').value = s.condicion || 'Nuevo';
+                document.getElementById('stu-anio').value = s.anioLectivo || currentYear;
+            } else {
+                document.getElementById('modal-title').textContent = "Matricular Alumno";
+                document.getElementById('student-form').reset();
+                document.getElementById('student-id').value = '';
+                document.getElementById('stu-anio').value = currentYear;
+            }
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+        }
+
+        window.closeModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            const content = modal.querySelector('#modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); }, 200);
+        }
+
+        window.showToast = function(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            let icon = type === 'success' ? 'fa-check' : (type === 'error' ? 'fa-triangle-exclamation' : 'fa-info');
+            t.innerHTML = `<i class="fa-solid ${icon} mr-2"></i> ${msg}`;
+            container.appendChild(t);
+            setTimeout(() => { if(container.contains(t)) t.remove(); }, 3300);
+        }
+
+        window.handleYearChange = function() {
+            currentYear = document.getElementById('year-filter').value;
+            renderTable();
+            updateDashboard();
+        }
+
+        function loadStudents() {
+            if (!currentUserUid || !db) return;
+            const ref = collection(db, 'artifacts', appId, 'users', currentUserUid, 'students');
+            onSnapshot(ref, (snap) => {
+                allStudents = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderTable();
+                updateDashboard();
+            }, e => console.error(e));
+        }
+
+        window.saveStudent = async function(e) {
+            e.preventDefault();
+            if (!currentUserUid) return showToast("Sin conexión", "error");
+
+            const id = document.getElementById('student-id').value || crypto.randomUUID();
+            const data = {
+                dni: document.getElementById('stu-dni').value.trim(),
+                nombres: document.getElementById('stu-nombres').value.trim(),
+                apellidos: document.getElementById('stu-apellidos').value.trim(),
+                edad: parseInt(document.getElementById('stu-edad').value) || 0,
+                genero: document.getElementById('stu-genero').value,
+                curso: document.getElementById('stu-curso').value.trim(),
+                turno: document.getElementById('stu-turno').value,
+                condicion: document.getElementById('stu-condicion').value,
+                anioLectivo: document.getElementById('stu-anio').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'users', currentUserUid, 'students', id), data);
+                closeModal('modal-add-student');
+                showToast("Registro guardado exitosamente", "success");
+            } catch (err) {
+                showToast("Error al guardar", "error");
+            }
+        }
+
+        window.deleteStudent = async function(id) {
+            if (!currentUserUid) return;
+            // No alert/confirm allowed, executing directly with Toast feedback
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserUid, 'students', id));
+                showToast("Registro eliminado de la base de datos", "info");
+            } catch (e) {
+                showToast("Error al eliminar", "error");
+            }
+        }
+
+        window.filterTable = function() { renderTable(); }
+
+        function getFiltered() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            return allStudents.filter(s => {
+                const matchY = currentYear === "Todos" || s.anioLectivo === currentYear;
+                const matchQ = (s.nombres + " " + s.apellidos + " " + s.dni + " " + s.curso).toLowerCase().includes(q);
+                return matchY && matchQ;
+            });
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('students-table-body');
+            const data = getFiltered();
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-6 text-center text-sm text-slate-500">No hay datos registrados en este filtro.</td></tr>`;
+                document.getElementById('table-info').textContent = `Registros: 0`;
+                return;
+            }
+
+            data.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 group';
+                
+                let condColor = 'bg-slate-100 text-slate-600';
+                if(s.condicion === 'Nuevo') condColor = 'bg-blue-100 text-blue-700';
+                if(s.condicion === 'Repitente') condColor = 'bg-orange-100 text-orange-700';
+                if(s.condicion === 'Regular') condColor = 'bg-emerald-100 text-emerald-700';
+
+                tr.innerHTML = `
+                    <td class="px-5 py-3 whitespace-nowrap font-medium text-slate-800">${s.dni}</td>
+                    <td class="px-5 py-3 whitespace-nowrap text-slate-600">${s.apellidos}, ${s.nombres}</td>
+                    <td class="px-5 py-3 whitespace-nowrap text-slate-600">${s.edad || '-'}</td>
+                    <td class="px-5 py-3 whitespace-nowrap text-slate-600">${s.curso} <span class="text-xs text-slate-400">(${s.turno})</span></td>
+                    <td class="px-5 py-3 whitespace-nowrap"><span class="px-2 py-1 rounded text-xs font-semibold ${condColor}">${s.condicion || 'N/A'}</span></td>
+                    <td class="px-5 py-3 whitespace-nowrap text-right">
+                        <button onclick="openModal('modal-add-student', '${s.id}')" class="text-indigo-500 hover:text-indigo-700 mr-2"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('table-info').textContent = `Registros: ${data.length}`;
+        }
+
+        function updateDashboard() {
+            const data = getFiltered();
+            
+            // Fórmulas Básicas (Equivalente Excel)
+            const total = data.length;
+            const female = data.filter(s => s.genero === 'Femenino').length;
+            const male = data.filter(s => s.genero === 'Masculino').length;
+            const nuevos = data.filter(s => s.condicion === 'Nuevo').length;
+            
+            const ages = data.map(s => s.edad).filter(e => e > 0);
+            const avgAge = ages.length ? (ages.reduce((a,b)=>a+b, 0) / ages.length).toFixed(1) : 0;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-gender-ratio').textContent = total ? `${Math.round((female/total)*100)}% / ${Math.round((male/total)*100)}%` : '0/0';
+            document.getElementById('stat-new').textContent = nuevos;
+            document.getElementById('stat-new-pct').textContent = total ? `(${Math.round((nuevos/total)*100)}%)` : '(0%)';
+            document.getElementById('stat-age-avg').textContent = avgAge;
+
+            // Procesamiento de datos para Gráficos
+            const ageCount = {};
+            const courseShiftData = {};
+            const condCount = { 'Nuevo': 0, 'Regular': 0, 'Repitente': 0 };
+
+            data.forEach(s => {
+                // Edad
+                if(s.edad) ageCount[s.edad] = (ageCount[s.edad] || 0) + 1;
+                
+                // Curso y Turno
+                const c = s.curso || 'Sin Curso';
+                const t = s.turno || 'Mañana';
+                if(!courseShiftData[c]) courseShiftData[c] = { Mañana:0, Tarde:0, Noche:0, Completo:0 };
+                if(courseShiftData[c][t] !== undefined) courseShiftData[c][t]++;
+                
+                // Condición
+                if(s.condicion && condCount[s.condicion] !== undefined) condCount[s.condicion]++;
+            });
+
+            // Re-renderizar Gráficos Chart.js
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#64748b';
+
+            // Gráfico 1: Edades
+            if(chartAge) chartAge.destroy();
+            chartAge = new Chart(document.getElementById('chartAge').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(ageCount).map(k => `${k} años`),
+                    datasets: [{ data: Object.values(ageCount), backgroundColor: '#818cf8', borderRadius: 4 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            // Gráfico 2: Cursos y Turnos (Stacked)
+            if(chartCourseShift) chartCourseShift.destroy();
+            chartCourseShift = new Chart(document.getElementById('chartCourseShift').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(courseShiftData),
+                    datasets: [
+                        { label: 'Mañana', data: Object.keys(courseShiftData).map(k=>courseShiftData[k].Mañana), backgroundColor: '#fde047' },
+                        { label: 'Tarde', data: Object.keys(courseShiftData).map(k=>courseShiftData[k].Tarde), backgroundColor: '#fb923c' },
+                        { label: 'Noche', data: Object.keys(courseShiftData).map(k=>courseShiftData[k].Noche), backgroundColor: '#334155' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
+            });
+
+            // Gráfico 3: Género
+            if(chartGender) chartGender.destroy();
+            chartGender = new Chart(document.getElementById('chartGender').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Femenino', 'Masculino', 'Otro'],
+                    datasets: [{ data: [female, male, total - female - male], backgroundColor: ['#ec4899', '#3b82f6', '#cbd5e1'], borderWidth:0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '65%' }
+            });
+
+            // Gráfico 4: Condición (Repitencia)
+            if(chartCondition) chartCondition.destroy();
+            chartCondition = new Chart(document.getElementById('chartCondition').getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: ['Nuevo', 'Regular', 'Repitente'],
+                    datasets: [{ data: [condCount['Nuevo'], condCount['Regular'], condCount['Repitente']], backgroundColor: ['#34d399', '#60a5fa', '#f87171'], borderWidth:0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        let selectedExcel = null;
+
+        window.handleFileSelect = (e) => {
+            selectedExcel = e.target.files[0];
+            if(selectedExcel) showToast(`Archivo cargado: ${selectedExcel.name}`, "info");
+        }
+
+        window.processExcel = () => {
+            if (!selectedExcel) return showToast("Seleccione un archivo primero", "error");
+            if (!currentUserUid) return showToast("Conecte la base de datos", "error");
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                    
+                    // Buscar 'datos basicos' (requisito)
+                    let sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('datos basicos')) || wb.SheetNames[0];
+                    const json = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+
+                    let count = 0;
+                    for (const row of json) {
+                        const keys = Object.keys(row);
+                        const findVal = (arr) => {
+                            const k = keys.find(key => arr.some(a => key.toLowerCase().includes(a)));
+                            return k ? String(row[k]).trim() : "";
+                        };
+
+                        const dni = findVal(['dni', 'doc']);
+                        const nom = findVal(['nombre']);
+                        const ape = findVal(['apellido']);
+                        const edd = parseInt(findVal(['edad'])) || 0;
+                        const cur = findVal(['curso', 'grado', 'año', 'clase']);
+                        const tur = findVal(['turno']) || 'Mañana';
+                        const gen = findVal(['genero', 'sexo']) || 'Otro';
+                        const con = findVal(['condicion', 'estado', 'repitente']) || 'Nuevo';
+
+                        if (nom || ape || dni) {
+                            const data = {
+                                dni: dni, nombres: nom, apellidos: ape, edad: edd, curso: cur,
+                                turno: tur.charAt(0).toUpperCase() + tur.slice(1).toLowerCase(),
+                                genero: gen.charAt(0).toUpperCase() + gen.slice(1).toLowerCase(),
+                                condicion: con.charAt(0).toUpperCase() + con.slice(1).toLowerCase(),
+                                anioLectivo: currentYear, updatedAt: new Date().toISOString()
+                            };
+                            await setDoc(doc(db, 'artifacts', appId, 'users', currentUserUid, 'students', crypto.randomUUID()), data);
+                            count++;
+                        }
+                    }
+                    showToast(`Se importaron ${count} alumnos al ciclo ${currentYear}`, "success");
+                    document.getElementById('excel-file').value = ''; 
+                    selectedExcel = null;
+                } catch (err) {
+                    showToast("Error leyendo Excel", "error");
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(selectedExcel);
+        }
+
+        window.exportToExcel = () => {
+            const data = getFiltered();
+            if(!data.length) return showToast("No hay datos para exportar", "error");
+
+            const formatted = data.map(s => ({
+                "DNI": s.dni, "Apellidos": s.apellidos, "Nombres": s.nombres, 
+                "Edad": s.edad, "Curso": s.curso, "Turno": s.turno, 
+                "Género": s.genero, "Condición": s.condicion, "Año": s.anioLectivo
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(formatted);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "datos basicos");
+            XLSX.writeFile(wb, `Matricula_${currentYear}.xlsx`);
+            showToast("Exportación exitosa", "success");
+        }
+
+    </script>
+</body>
+</html>
